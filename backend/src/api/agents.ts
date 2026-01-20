@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
-import { verifyPayment, settlePayment, parsePaymentSignature, generatePaymentRequiredResponse } from "../x402/facilitator";
+import { verifyPayment, settlePayment, generatePaymentRequiredResponse } from "../x402/facilitator";
+import { decodePaymentSignatureHeader } from "@x402/core/http";
 import { executeAgent } from "../agent-engine/executor";
 import { getAllAgentsFromContract, getAgentFromContract } from "../lib/contract";
 
@@ -150,15 +151,26 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
 
     // Parse payment signature from headers
     console.log("Parsing payment signature...");
-    const webRequest = new Request(`http://localhost${req.url}`, {
-      method: req.method,
-      headers: new Headers(req.headers as any),
-      body: req.body ? JSON.stringify(req.body) : undefined,
-    });
+    
+    // Extract payment header directly (can be string or string[])
+    const paymentHeaderValue = req.headers["x-payment-signature"] || req.headers["payment-signature"];
+    const headerString = Array.isArray(paymentHeaderValue) 
+      ? paymentHeaderValue[0] 
+      : paymentHeaderValue;
+    
+    if (!headerString || typeof headerString !== "string") {
+      console.log("No payment header found");
+      return res.status(402).json({
+        error: "Payment signature header missing",
+        paymentRequired: true,
+      });
+    }
     
     let paymentPayload;
     try {
-      paymentPayload = parsePaymentSignature(webRequest);
+      // Decode the payment signature header directly
+      paymentPayload = decodePaymentSignatureHeader(headerString);
+      console.log("Payment payload decoded successfully");
     } catch (parseError) {
       console.error("Payment parsing error:", parseError);
       return res.status(402).json({
@@ -190,13 +202,6 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
       return res.status(402).json({
         error: "Payment verification failed",
         details: verifyError instanceof Error ? verifyError.message : String(verifyError),
-      });
-    }
-
-    if (!verification.valid) {
-      return res.status(402).json({
-        error: verification.invalidReason || "Payment verification failed",
-        paymentRequired: true,
       });
     }
 
