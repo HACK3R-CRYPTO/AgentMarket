@@ -61,7 +61,7 @@ async function getResourceServer(): Promise<x402ResourceServer> {
   if (!resourceServer) {
     debugLog("Initializing x402 resource server", {
       facilitatorUrl: FACILITATOR_URL,
-      networks: [CRONOS_TESTNET],
+      networks: [CRONOS_TESTNET_FACILITATOR],
     });
 
     const facilitatorClient = new HTTPFacilitatorClient({
@@ -279,7 +279,8 @@ export async function settlePayment(
 
   try {
     const server = await getResourceServer();
-    const network = expectedDetails.testnet ? CRONOS_TESTNET : CRONOS_MAINNET;
+    // Use facilitator's network format
+    const network = expectedDetails.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR;
 
     const priceAsset = usdToUsdc(expectedDetails.priceUsd, expectedDetails.testnet);
     const paymentOption = buildExactPaymentOption({
@@ -426,7 +427,7 @@ function extractPayerAddress(payload: PaymentPayload): string | null {
 
 export function getNetworkInfo(testnet?: boolean) {
   return {
-    network: testnet ? CRONOS_TESTNET : CRONOS_MAINNET,
+    network: testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR,
     chainId: testnet ? CRONOS_TESTNET_CHAIN_ID : CRONOS_MAINNET_CHAIN_ID,
     chainIdHex: testnet ? "0x152" : "0x19",
     chainName: testnet ? "Cronos Testnet" : "Cronos",
