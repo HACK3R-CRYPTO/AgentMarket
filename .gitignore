@@ -16,7 +16,7 @@ out/
 .env
 .env.local
 .env*.local
-# But allow .env.example files
+# But allow .env.example files (must come after ignore rules)
 !.env.example
 !**/.env.example
 !.env.local.example
