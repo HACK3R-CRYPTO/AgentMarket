@@ -98,6 +98,8 @@ export default function AgentDetail() {
       };
 
       if (paymentHeader) {
+        // Cronos docs use X-PAYMENT, but we also send other headers for compatibility
+        headers["X-PAYMENT"] = paymentHeader;
         headers["X-PAYMENT-SIGNATURE"] = paymentHeader;
         headers["PAYMENT-SIGNATURE"] = paymentHeader;
       }

@@ -57,8 +57,8 @@ export function useX402Payment() {
           asset: getAddress(USDC_CRONOS_TESTNET),
           maxTimeoutSeconds: 300,
           extra: {
-            name: "USDC",
-            version: "2",
+            name: "Bridged USDC (Stargate)",
+            version: "1",
           },
         },
       ],
@@ -84,13 +84,15 @@ export function useX402Payment() {
     const maxTimeoutSeconds = firstAccept.maxTimeoutSeconds || 300;
 
     const now = Math.floor(Date.now() / 1000);
-    const validAfter = BigInt(now - 600);
+    // According to Cronos docs: validAfter = 0 (valid immediately)
+    const validAfter = BigInt(0);
     const validBefore = BigInt(now + maxTimeoutSeconds);
     const nonce = toHex(crypto.getRandomValues(new Uint8Array(32)));
 
+    // EIP-712 domain per Cronos documentation
     const domain = {
-      name: firstAccept.extra.name,
-      version: firstAccept.extra.version,
+      name: "Bridged USDC (Stargate)",
+      version: "1",
       chainId: CRONOS_TESTNET.id,
       verifyingContract: asset,
     };
@@ -136,29 +138,30 @@ export function useX402Payment() {
 
     const now = Math.floor(Date.now() / 1000);
     const maxTimeoutSeconds = firstAccept.maxTimeoutSeconds || 300;
-    const validAfter = String(now - 600);
+    // According to Cronos docs: validAfter = 0 (valid immediately)
+    const validAfter = "0";
     const validBefore = String(now + maxTimeoutSeconds);
     const nonce = toHex(crypto.getRandomValues(new Uint8Array(32)));
 
-    // Cronos facilitator uses x402Version 1
-    const paymentPayload = {
+    // Payment header structure per Cronos documentation
+    // https://docs.cronos.org/cronos-x402-facilitator/quick-start-for-buyers
+    const paymentHeader = {
       x402Version: 1,
+      scheme: firstAccept.scheme,
+      network: firstAccept.network,
       payload: {
-        signature,
-        authorization: {
-          from: getAddress(address),
-          to: getAddress(firstAccept.payTo),
-          value: firstAccept.amount,
-          validAfter,
-          validBefore,
-          nonce,
-        },
+        from: getAddress(address),
+        to: getAddress(firstAccept.payTo),
+        value: firstAccept.amount,
+        validAfter: validAfter,
+        validBefore: validBefore,
+        nonce: nonce,
+        signature: signature,
+        asset: getAddress(firstAccept.asset),
       },
-      accepted: firstAccept,
-      resource: paymentRequest.resource,
     };
 
-    const header = btoa(JSON.stringify(paymentPayload));
+    const header = btoa(JSON.stringify(paymentHeader));
     const hash = `0x${Buffer.from(header).toString("hex").slice(0, 64)}`;
 
     return { header, hash };

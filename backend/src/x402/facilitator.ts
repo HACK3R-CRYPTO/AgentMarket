@@ -70,8 +70,9 @@ async function getResourceServer(): Promise<x402ResourceServer> {
 
     // Register with facilitator's network format (cronos-testnet) not EIP-155 format
     // The SDK will handle the mapping internally
+    // Type assertion needed: SDK types expect EIP-155 format but Cronos facilitator uses "cronos-testnet"
     resourceServer = new x402ResourceServer(facilitatorClient).register(
-      CRONOS_TESTNET_FACILITATOR,
+      CRONOS_TESTNET_FACILITATOR as `${string}:${string}`,
       new ExactEvmScheme()
     );
   }
@@ -83,9 +84,9 @@ async function getResourceServer(): Promise<x402ResourceServer> {
           await resourceServer!.initialize();
           serverInitialized = true;
           debugLog("x402 resource server initialized successfully");
-          debugLog("hasRegisteredScheme", resourceServer!.hasRegisteredScheme(CRONOS_TESTNET_FACILITATOR, "exact"));
-          debugLog("getSupportedKind v1", resourceServer!.getSupportedKind(1, CRONOS_TESTNET_FACILITATOR, "exact"));
-          debugLog("getSupportedKind v2", resourceServer!.getSupportedKind(2, CRONOS_TESTNET_FACILITATOR, "exact"));
+          debugLog("hasRegisteredScheme", resourceServer!.hasRegisteredScheme(CRONOS_TESTNET_FACILITATOR as `${string}:${string}`, "exact"));
+          debugLog("getSupportedKind v1", resourceServer!.getSupportedKind(1, CRONOS_TESTNET_FACILITATOR as `${string}:${string}`, "exact"));
+          debugLog("getSupportedKind v2", resourceServer!.getSupportedKind(2, CRONOS_TESTNET_FACILITATOR as `${string}:${string}`, "exact"));
         } catch (error) {
           errorLog("Failed to initialize x402 resource server", error);
           throw error;
@@ -120,8 +121,8 @@ export function usdToUsdc(usdAmount: number, testnet = true): AssetAmount {
     asset,
     amount,
     extra: {
-      name: "USDC",
-      version: "2",
+      name: "Bridged USDC (Stargate)",
+      version: "1",
     },
   };
 }
@@ -148,24 +149,79 @@ export function buildExactPaymentOption(config: {
 }
 
 export function parsePaymentSignature(request: Request): PaymentPayload | null {
-  const signatureFromX = request.headers.get("X-PAYMENT-SIGNATURE");
-  const signatureFromPlain = request.headers.get("PAYMENT-SIGNATURE");
-  const signature = signatureFromX || signatureFromPlain;
+  // According to Cronos docs, payment header can be in X-PAYMENT or X-PAYMENT-SIGNATURE
+  // The official format uses X-PAYMENT per documentation
+  const paymentHeader = request.headers.get("X-PAYMENT") || 
+                        request.headers.get("X-PAYMENT-SIGNATURE") ||
+                        request.headers.get("PAYMENT-SIGNATURE");
 
   debugLog("Parsing payment signature from headers", {
-    hasXPaymentSignature: !!signatureFromX,
-    hasPaymentSignature: !!signatureFromPlain,
-    signatureLength: signature?.length,
+    hasXPayment: !!request.headers.get("X-PAYMENT"),
+    hasXPaymentSignature: !!request.headers.get("X-PAYMENT-SIGNATURE"),
+    hasPaymentSignature: !!request.headers.get("PAYMENT-SIGNATURE"),
+    headerLength: paymentHeader?.length,
   });
 
-  if (!signature) {
-    debugLog("No payment signature found in headers");
+  if (!paymentHeader) {
+    debugLog("No payment header found in headers");
     return null;
   }
 
   try {
-    const decoded = decodePaymentSignatureHeader(signature);
-    debugLog("Successfully decoded payment signature", {
+    // The payment header is base64-encoded JSON
+    // Try to decode it directly first (Cronos format)
+    try {
+      const decodedJson = JSON.parse(Buffer.from(paymentHeader, 'base64').toString('utf-8'));
+      debugLog("Decoded payment header (direct base64)", {
+        x402Version: decodedJson.x402Version,
+        scheme: decodedJson.scheme,
+        network: decodedJson.network,
+        hasPayload: !!decodedJson.payload,
+      });
+      
+      // Convert Cronos format to SDK format if needed
+      if (decodedJson.payload && decodedJson.scheme && decodedJson.network) {
+        // This is the Cronos format - convert to SDK PaymentPayload format
+        const sdkPayload: PaymentPayload = {
+          x402Version: decodedJson.x402Version || 1,
+          payload: {
+            signature: decodedJson.payload.signature,
+            authorization: {
+              from: decodedJson.payload.from,
+              to: decodedJson.payload.to,
+              value: decodedJson.payload.value,
+              validAfter: decodedJson.payload.validAfter,
+              validBefore: decodedJson.payload.validBefore,
+              nonce: decodedJson.payload.nonce,
+            },
+          },
+          accepted: {
+            scheme: decodedJson.scheme,
+            network: decodedJson.network,
+            amount: decodedJson.payload.value,
+            payTo: decodedJson.payload.to,
+            asset: decodedJson.payload.asset,
+            maxTimeoutSeconds: 300,
+            extra: {
+              name: "Bridged USDC (Stargate)",
+              version: "1",
+            },
+          },
+          resource: {
+            url: "",
+            mimeType: "application/json",
+          },
+        };
+        return sdkPayload;
+      }
+    } catch (base64Error) {
+      // If direct base64 decode fails, try SDK's decodePaymentSignatureHeader
+      debugLog("Direct base64 decode failed, trying SDK decoder", base64Error);
+    }
+
+    // Fallback to SDK's decoder (for compatibility with SDK format)
+    const decoded = decodePaymentSignatureHeader(paymentHeader);
+    debugLog("Successfully decoded payment signature (SDK format)", {
       x402Version: decoded.x402Version,
       resource: decoded.resource,
       accepted: decoded.accepted,
@@ -205,19 +261,21 @@ export async function verifyPayment(
       testnet: expectedDetails.testnet,
     });
 
-    const paymentRequirements = await server.buildPaymentRequirementsFromOptions(
-      [paymentOption],
-      undefined
-    );
+    // Workaround: Manually construct PaymentRequirements since buildPaymentRequirementsFromOptions
+    // fails with "Facilitator does not support exact on cronos-testnet" even though it's initialized.
+    // The SDK's internal check seems to have an issue with version 1 support detection.
+    // We know the structure is correct because getSupportedKind(1, ...) returns the right kind.
+    const paymentRequirement: PaymentRequirements = {
+      scheme: paymentOption.scheme,
+      network: paymentOption.network as `${string}:${string}`, // Type assertion: SDK types expect EIP-155 but facilitator uses "cronos-testnet"
+      amount: paymentOption.price.amount,
+      payTo: paymentOption.payTo,
+      asset: paymentOption.price.asset,
+      maxTimeoutSeconds: paymentOption.maxTimeoutSeconds,
+      extra: paymentOption.price.extra || {},
+    };
 
-    const paymentRequirement = paymentRequirements[0];
-    if (!paymentRequirement) {
-      errorLog("Failed to build payment requirements");
-      return {
-        valid: false,
-        invalidReason: "Failed to build payment requirements",
-      };
-    }
+    debugLog("Manually constructed payment requirement", paymentRequirement);
 
     debugLog("Calling facilitator verifyPayment...");
     const verifyResult = await server.verifyPayment(payload, paymentRequirement);
@@ -291,19 +349,21 @@ export async function settlePayment(
       testnet: expectedDetails.testnet,
     });
 
-    const paymentRequirements = await server.buildPaymentRequirementsFromOptions(
-      [paymentOption],
-      undefined
-    );
+    // Workaround: Manually construct PaymentRequirements since buildPaymentRequirementsFromOptions
+    // fails with "Facilitator does not support exact on cronos-testnet" even though it's initialized.
+    // The SDK's internal check seems to have an issue with version 1 support detection.
+    // We know the structure is correct because getSupportedKind(1, ...) returns the right kind.
+    const paymentRequirement: PaymentRequirements = {
+      scheme: paymentOption.scheme,
+      network: paymentOption.network as `${string}:${string}`, // Type assertion: SDK types expect EIP-155 but facilitator uses "cronos-testnet"
+      amount: paymentOption.price.amount,
+      payTo: paymentOption.payTo,
+      asset: paymentOption.price.asset,
+      maxTimeoutSeconds: paymentOption.maxTimeoutSeconds,
+      extra: paymentOption.price.extra || {},
+    };
 
-    const paymentRequirement = paymentRequirements[0];
-    if (!paymentRequirement) {
-      errorLog("Failed to build payment requirements for settlement");
-      return {
-        success: false,
-        error: "Failed to build payment requirements",
-      };
-    }
+    debugLog("Manually constructed payment requirement for settlement", paymentRequirement);
 
     debugLog("Calling facilitator settlePayment...");
     const settleResult = await server.settlePayment(payload, paymentRequirement);
@@ -358,9 +418,9 @@ export async function generatePaymentRequiredResponse(config: {
   try {
     const server = await getResourceServer();
     debugLog("Facilitator initialized, checking supported schemes", {
-      hasExact: server.hasRegisteredScheme(config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR, "exact"),
-      supportedKindV1: server.getSupportedKind(1, config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR, "exact"),
-      supportedKindV2: server.getSupportedKind(2, config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR, "exact"),
+      hasExact: server.hasRegisteredScheme((config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR) as `${string}:${string}`, "exact"),
+      supportedKindV1: server.getSupportedKind(1, (config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR) as `${string}:${string}`, "exact"),
+      supportedKindV2: server.getSupportedKind(2, (config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR) as `${string}:${string}`, "exact"),
     });
   } catch (error) {
     errorLog("Failed to initialize facilitator for payment response", error);

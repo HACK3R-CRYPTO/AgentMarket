@@ -107,6 +107,7 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
     console.log("Agent ID:", req.params.id);
     console.log("Body:", JSON.stringify(req.body, null, 2));
     console.log("Payment headers:", {
+      "x-payment": req.headers["x-payment"] ? "present" : "missing",
       "x-payment-signature": req.headers["x-payment-signature"] ? "present" : "missing",
       "payment-signature": req.headers["payment-signature"] ? "present" : "missing",
     });
@@ -130,41 +131,45 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
     const escrowAddress = process.env.AGENT_ESCROW_ADDRESS || "0xE2228Cf8a49Cd23993442E5EE5a39d6180E0d25f";
     console.log("Agent price:", agentPrice, "USD, Escrow:", escrowAddress);
 
-    // Check for payment header
-    const paymentHeader = req.headers["x-payment-signature"] || req.headers["payment-signature"];
+    // Check for payment header (Cronos docs use X-PAYMENT, but we also support X-PAYMENT-SIGNATURE for compatibility)
+    const paymentHeader = req.headers["x-payment"] || 
+                          req.headers["x-payment-signature"] || 
+                          req.headers["payment-signature"];
     console.log("Payment header present:", !!paymentHeader, "Payment hash in body:", !!paymentHash);
 
     if (!paymentHash && !paymentHeader) {
-      console.log("No payment provided, ensuring facilitator is initialized...");
-      // Ensure facilitator is initialized before generating payment requirements
-      try {
-        const { initializeFacilitator } = await import("../x402/facilitator");
-        await initializeFacilitator();
-        console.log("Facilitator initialized successfully");
-      } catch (initError) {
-        console.error("Failed to initialize facilitator for payment requirements:", initError);
-        // Continue anyway - generatePaymentRequiredResponse doesn't need facilitator
-      }
+      console.log("No payment provided, generating payment requirements...");
       
-      // Return 402 with payment requirements
-      const paymentRequired = generatePaymentRequiredResponse({
-        url: req.url || "",
-        description: `Execute agent ${agentId}`,
-        priceUsd: agentPrice,
-        payTo: escrowAddress,
-        testnet: true,
-      });
-      return res.status(402).json({
-        error: "Payment required",
-        paymentRequired: paymentRequired,
-      });
+      // Return 402 with payment requirements (now async)
+      try {
+        const paymentRequired = await generatePaymentRequiredResponse({
+          url: req.url || "",
+          description: `Execute agent ${agentId}`,
+          priceUsd: agentPrice,
+          payTo: escrowAddress,
+          testnet: true,
+        });
+        return res.status(402).json({
+          error: "Payment required",
+          paymentRequired: paymentRequired,
+        });
+      } catch (error) {
+        console.error("Error generating payment requirements:", error);
+        return res.status(500).json({
+          error: "Failed to generate payment requirements",
+          details: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     // Parse payment signature from headers
     console.log("Parsing payment signature...");
     
     // Extract payment header directly (can be string or string[])
-    const paymentHeaderValue = req.headers["x-payment-signature"] || req.headers["payment-signature"];
+    // Cronos docs use X-PAYMENT, but we also support X-PAYMENT-SIGNATURE for compatibility
+    const paymentHeaderValue = req.headers["x-payment"] || 
+                               req.headers["x-payment-signature"] || 
+                               req.headers["payment-signature"];
     const headerString = Array.isArray(paymentHeaderValue) 
       ? paymentHeaderValue[0] 
       : paymentHeaderValue;
