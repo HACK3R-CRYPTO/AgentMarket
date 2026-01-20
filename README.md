@@ -68,9 +68,9 @@ Example: User pays $0.10. Platform fee $0.01. Developer receives $0.09. All auto
 
 Frontend: Navigate to frontend folder. Run npm install. Run npm run dev. Visit localhost:3000.
 
-Backend: Navigate to backend folder. Run npm install. Add .env file with GEMINI_API_KEY and BACKEND_PRIVATE_KEY. Optional: Add OPENAI_API_KEY and CRONOS_TESTNET_EXPLORER_KEY for blockchain queries. Run npm run dev. Server runs on localhost:3001.
+Contracts: See contracts README for setup. Deploy to Cronos testnet. Update frontend addresses.
 
-Contracts: Navigate to contracts folder. Run forge install. Run forge build. Deploy with forge script script/Deploy.s.sol --rpc-url https://evm-t3.cronos.org --broadcast.
+Backend: See backend README for setup. Run validation server. Configure contract addresses.
 
 ## Deployed Contracts
 
@@ -94,11 +94,11 @@ Faucets: TCRO from cronos.org/faucet. devUSDC.e from faucet.cronos.org.
 
 ## Documentation
 
+[Contracts README](contracts/README.md): Smart contract setup and deployment details.
+
 [Frontend README](frontend/README.md): Frontend setup and feature documentation.
 
 [Backend README](backend/README.md): Backend setup and API documentation.
-
-[Contracts README](contracts/README.md): Smart contract setup and deployment details.
 
 ## Built for Hackathon
 

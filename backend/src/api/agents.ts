@@ -5,10 +5,12 @@ import { executeAgent } from "../agent-engine/executor";
 import { getAllAgentsFromContract, getAgentFromContract, executeAgentOnContract, verifyExecutionOnContract, releasePaymentToDeveloper } from "../lib/contract";
 import { db } from "../lib/database";
 import { ethers } from "ethers";
+import { validateAgentInputMiddleware, validateAgentCreation } from "../middleware/validation";
+import { agentExecutionRateLimit, apiRateLimit } from "../middleware/rateLimit";
 
 const router = Router();
 
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", apiRateLimit, async (req: Request, res: Response) => {
   try {
     // Try to fetch from contract first
     const contractAgents = await getAllAgentsFromContract();
@@ -103,7 +105,7 @@ router.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/:id/execute", async (req: Request, res: Response) => {
+router.post("/:id/execute", agentExecutionRateLimit, validateAgentInputMiddleware, async (req: Request, res: Response) => {
   try {
     console.log("=== Agent Execution Request ===");
     console.log("Agent ID:", req.params.id);
@@ -115,6 +117,12 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
     });
 
     const agentId = parseInt(req.params.id);
+    
+    // Validate agent ID
+    if (isNaN(agentId) || agentId <= 0) {
+      return res.status(400).json({ error: "Invalid agent ID" });
+    }
+    
     const { input, paymentHash } = req.body;
 
     if (!input) {
@@ -362,10 +370,15 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error executing agent:", error);
     console.error("Error details:", error instanceof Error ? error.stack : error);
-    res.status(500).json({ 
-      error: "Failed to execute agent",
-      details: error instanceof Error ? error.message : String(error)
-    });
+    
+    // Import error handler
+    const { sendErrorResponse } = require("../utils/errorHandler");
+    sendErrorResponse(
+      res,
+      error,
+      "Failed to execute agent",
+      500
+    );
   }
 });
 

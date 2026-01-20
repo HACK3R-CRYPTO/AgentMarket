@@ -14,7 +14,10 @@ const router = Router();
  * Unified chat endpoint - automatically routes to right tools
  * POST /api/chat
  */
-router.post("/", async (req: Request, res: Response) => {
+import { validateAgentInputMiddleware } from "../middleware/validation";
+import { chatRateLimit } from "../middleware/rateLimit";
+
+router.post("/", chatRateLimit, validateAgentInputMiddleware, async (req: Request, res: Response) => {
   try {
     const { input, paymentHash } = req.body;
 
@@ -269,10 +272,15 @@ User Input:
     });
   } catch (error) {
     console.error("Error in chat:", error);
-    res.status(500).json({ 
-      error: "Failed to process chat message",
-      details: error instanceof Error ? error.message : String(error)
-    });
+    
+    // Import error handler
+    const { sendErrorResponse } = require("../utils/errorHandler");
+    sendErrorResponse(
+      res,
+      error,
+      "Failed to process chat message",
+      500
+    );
   }
 });
 

@@ -9,17 +9,21 @@ import executionsRouter from "./api/executions";
 import analyticsRouter from "./api/analytics";
 import logsRouter from "./api/logs";
 import chatRouter from "./api/chat";
+import healthRouter from "./api/health";
 import { initializeFacilitator } from "./x402/facilitator";
+import { apiRateLimit } from "./middleware/rateLimit";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" })); // Limit request body size
 
-app.get("/health", (req: express.Request, res: express.Response) => {
-  res.json({ status: "ok", message: "AgentMarket backend is running" });
-});
+// Health check endpoints (no rate limiting)
+app.use("/api/health", healthRouter);
+
+// Apply rate limiting to all API routes
+app.use("/api", apiRateLimit);
 
 app.use("/api/agents", agentsRouter);
 app.use("/api/executions", executionsRouter);
