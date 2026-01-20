@@ -183,7 +183,11 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error executing agent:", error);
-    res.status(500).json({ error: "Failed to execute agent" });
+    console.error("Error details:", error instanceof Error ? error.stack : error);
+    res.status(500).json({ 
+      error: "Failed to execute agent",
+      details: error instanceof Error ? error.message : String(error)
+    });
   }
 });
 
