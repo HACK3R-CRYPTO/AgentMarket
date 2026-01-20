@@ -23,7 +23,7 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 
 // Configuration from environment
 const FACILITATOR_URL =
-  process.env.X402_FACILITATOR_URL || "https://x402.cronos.org/facilitator";
+  process.env.X402_FACILITATOR_URL || "https://facilitator.cronoslabs.org/v2/x402";
 
 // Networks (typed as template literals for SDK compatibility)
 const CRONOS_TESTNET = "eip155:338" as const;
