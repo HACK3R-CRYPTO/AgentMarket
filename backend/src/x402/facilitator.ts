@@ -25,7 +25,12 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 const FACILITATOR_URL =
   process.env.X402_FACILITATOR_URL || "https://facilitator.cronoslabs.org/v2/x402";
 
-// Networks (typed as template literals for SDK compatibility)
+// Networks
+// Note: Cronos facilitator uses "cronos-testnet" format, but x402 SDK uses "eip155:338"
+// We need to use the facilitator's format for registration
+const CRONOS_TESTNET_FACILITATOR = "cronos-testnet" as const;
+const CRONOS_MAINNET_FACILITATOR = "cronos-mainnet" as const;
+// Keep EIP-155 format for SDK internal use
 const CRONOS_TESTNET = "eip155:338" as const;
 const CRONOS_MAINNET = "eip155:25" as const;
 
@@ -63,8 +68,10 @@ async function getResourceServer(): Promise<x402ResourceServer> {
       url: FACILITATOR_URL,
     });
 
+    // Register with facilitator's network format (cronos-testnet) not EIP-155 format
+    // The SDK will handle the mapping internally
     resourceServer = new x402ResourceServer(facilitatorClient).register(
-      CRONOS_TESTNET,
+      CRONOS_TESTNET_FACILITATOR,
       new ExactEvmScheme()
     );
   }
@@ -76,8 +83,8 @@ async function getResourceServer(): Promise<x402ResourceServer> {
           await resourceServer!.initialize();
           serverInitialized = true;
           debugLog("x402 resource server initialized successfully");
-          debugLog("hasRegisteredScheme", resourceServer!.hasRegisteredScheme(CRONOS_TESTNET, "exact"));
-          debugLog("getSupportedKind", resourceServer!.getSupportedKind(2, CRONOS_TESTNET, "exact"));
+          debugLog("hasRegisteredScheme", resourceServer!.hasRegisteredScheme(CRONOS_TESTNET_FACILITATOR, "exact"));
+          debugLog("getSupportedKind", resourceServer!.getSupportedKind(2, CRONOS_TESTNET_FACILITATOR, "exact"));
         } catch (error) {
           errorLog("Failed to initialize x402 resource server", error);
           throw error;
@@ -124,7 +131,8 @@ export function buildExactPaymentOption(config: {
   testnet?: boolean;
   maxTimeoutSeconds?: number;
 }) {
-  const network = config.testnet ? CRONOS_TESTNET : CRONOS_MAINNET;
+  // Use facilitator's network format for payment options
+  const network = config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR;
 
   const option = {
     scheme: "exact" as const,
@@ -336,14 +344,27 @@ export async function settlePayment(
   }
 }
 
-export function generatePaymentRequiredResponse(config: {
+export async function generatePaymentRequiredResponse(config: {
   url: string;
   description?: string;
   priceUsd: number;
   payTo: string;
   testnet?: boolean;
 }) {
-  const network = config.testnet ? CRONOS_TESTNET : CRONOS_MAINNET;
+  // Ensure facilitator is initialized first
+  try {
+    const server = await getResourceServer();
+    debugLog("Facilitator initialized, checking supported schemes", {
+      hasExact: server.hasRegisteredScheme(config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR, "exact"),
+      supportedKind: server.getSupportedKind(2, config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR, "exact"),
+    });
+  } catch (error) {
+    errorLog("Failed to initialize facilitator for payment response", error);
+    // Continue anyway - we'll return the response but it might not work
+  }
+
+  // Use facilitator's network format for payment requirements
+  const network = config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR;
   const usdcAsset = usdToUsdc(config.priceUsd, config.testnet);
 
   const response = {
