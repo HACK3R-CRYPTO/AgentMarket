@@ -50,6 +50,7 @@ function errorLog(message: string, error?: unknown) {
 
 let resourceServer: x402ResourceServer | null = null;
 let serverInitialized = false;
+let initializationPromise: Promise<void> | null = null;
 
 async function getResourceServer(): Promise<x402ResourceServer> {
   if (!resourceServer) {
@@ -69,12 +70,27 @@ async function getResourceServer(): Promise<x402ResourceServer> {
   }
 
   if (!serverInitialized) {
-    await resourceServer.initialize();
-    serverInitialized = true;
-    debugLog("x402 resource server initialized successfully");
+    if (!initializationPromise) {
+      initializationPromise = (async () => {
+        try {
+          await resourceServer!.initialize();
+          serverInitialized = true;
+          debugLog("x402 resource server initialized successfully");
+        } catch (error) {
+          errorLog("Failed to initialize x402 resource server", error);
+          throw error;
+        }
+      })();
+    }
+    await initializationPromise;
   }
 
   return resourceServer;
+}
+
+// Export function to pre-initialize facilitator on server startup
+export async function initializeFacilitator(): Promise<void> {
+  await getResourceServer();
 }
 
 export type { PaymentPayload, PaymentRequirements, SettleResponse, VerifyResponse };
