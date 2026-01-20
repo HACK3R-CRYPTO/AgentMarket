@@ -1,6 +1,17 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+// Create fresh genAI instance each time to ensure API key is always loaded
+// (Don't cache it, as it might be created before dotenv loads)
+function getGenAI(): GoogleGenerativeAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.error("❌ GEMINI_API_KEY not found in process.env");
+    console.error("Available env keys:", Object.keys(process.env).filter(k => k.includes('GEMINI') || k.includes('API')));
+    throw new Error("GEMINI_API_KEY not configured");
+  }
+  // Create fresh instance each time to ensure we always have the latest API key
+  return new GoogleGenerativeAI(apiKey);
+}
 
 interface AgentConfig {
   systemPrompt: string;
@@ -15,7 +26,7 @@ const AGENT_CONFIGS: Record<number, AgentConfig> = {
 - Low severity issues
 - Recommendations for fixes
 Format your response as a clear, professional security audit report.`,
-    model: "gemini-1.5-pro",
+    model: "gemini-2.5-flash", // Using gemini-2.5-flash (without models/ prefix - SDK handles it)
   },
   2: {
     systemPrompt: `You are a cryptocurrency market data analyst. Analyze the provided market data and provide insights about:
@@ -24,7 +35,7 @@ Format your response as a clear, professional security audit report.`,
 - Trading opportunities
 - Risk factors
 Format your response as a clear market analysis report.`,
-    model: "gemini-1.5-pro",
+    model: "gemini-2.5-flash",
   },
   3: {
     systemPrompt: `You are a marketing copywriter specializing in Web3 and cryptocurrency projects. Generate engaging, professional marketing content based on the provided brief. Your content should be:
@@ -33,7 +44,7 @@ Format your response as a clear market analysis report.`,
 - Professional tone
 - Action-oriented
 Format your response as ready-to-use marketing copy.`,
-    model: "gemini-1.5-pro",
+    model: "gemini-2.5-flash",
   },
   4: {
     systemPrompt: `You are a DeFi portfolio analyst. Analyze the provided portfolio information and provide:
@@ -42,7 +53,7 @@ Format your response as ready-to-use marketing copy.`,
 - Optimization recommendations
 - Strategy suggestions
 Format your response as a comprehensive portfolio analysis report.`,
-    model: "gemini-1.5-pro",
+    model: "gemini-2.5-flash",
   },
 };
 
@@ -59,16 +70,20 @@ export async function executeAgent(
       };
     }
 
-    if (!process.env.GEMINI_API_KEY) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("❌ GEMINI_API_KEY not found when executing agent");
       return {
         output: "Gemini API key not configured",
         success: false,
       };
     }
 
-    const model = genAI.getGenerativeModel({ 
-      model: config.model || "gemini-1.5-pro" 
+    console.log("🔑 Using Gemini API key (length:", apiKey.length + ")");
+    const model = getGenAI().getGenerativeModel({ 
+      model: config.model || "gemini-2.5-flash" 
     });
+    console.log("📤 Calling Gemini model:", config.model || "gemini-2.5-flash");
 
     const prompt = `${config.systemPrompt}\n\nUser Input:\n${input}`;
 

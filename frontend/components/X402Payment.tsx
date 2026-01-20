@@ -48,12 +48,15 @@ export function X402Payment({
       );
 
       // Step 2: Sign payment with wallet
-      const signature = await signPayment(paymentRequest);
+      const { signature, nonce, validAfter, validBefore } = await signPayment(paymentRequest);
 
-      // Step 3: Build payment payload
+      // Step 3: Build payment payload using the SAME nonce and timestamps from signing
       const { header: paymentHeader, hash: paymentHash } = await buildPaymentPayload(
         paymentRequest,
-        signature
+        signature,
+        nonce,
+        validAfter,
+        validBefore
       );
 
       // Store payment header for submission to backend

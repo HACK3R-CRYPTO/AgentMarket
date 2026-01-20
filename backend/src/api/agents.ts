@@ -208,11 +208,12 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
     console.log("Verifying payment...");
     let verification;
     try {
+      // Pass the original payment header to preserve the signature
       verification = await verifyPayment(paymentPayload, {
         priceUsd: agentPrice,
         payTo: escrowAddress,
         testnet: true,
-      });
+      }, headerString);
     } catch (verifyError) {
       console.error("Payment verification error:", verifyError);
       return res.status(402).json({
@@ -239,11 +240,12 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
     if (result.success) {
       console.log("Settling payment...");
       try {
+        // Pass the original payment header to preserve the signature
         await settlePayment(paymentPayload, {
           priceUsd: agentPrice,
           payTo: escrowAddress,
           testnet: true,
-        });
+        }, headerString);
         console.log("Payment settled successfully");
       } catch (settleError) {
         console.error("Payment settlement error:", settleError);

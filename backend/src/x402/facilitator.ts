@@ -209,6 +209,7 @@ export function parsePaymentSignature(request: Request): PaymentPayload | null {
           },
           resource: {
             url: "",
+            description: "",
             mimeType: "application/json",
           },
         };
@@ -239,7 +240,8 @@ export async function verifyPayment(
     priceUsd: number;
     payTo: string;
     testnet?: boolean;
-  }
+  },
+  originalPaymentHeader?: string
 ): Promise<{
   valid: boolean;
   invalidReason?: string;
@@ -277,41 +279,118 @@ export async function verifyPayment(
 
     debugLog("Manually constructed payment requirement", paymentRequirement);
 
-    debugLog("Calling facilitator verifyPayment...");
-    const verifyResult = await server.verifyPayment(payload, paymentRequirement);
-
-    debugLog("Facilitator verification result", {
-      isValid: verifyResult?.isValid,
-      invalidReason: verifyResult?.invalidReason,
-      payer: verifyResult?.payer,
-    });
-
-    if (!verifyResult || !verifyResult.isValid) {
-      errorLog("Payment verification failed", {
-        isValid: verifyResult?.isValid,
-        invalidReason: verifyResult?.invalidReason,
-      });
-      return {
-        valid: false,
-        invalidReason: verifyResult?.invalidReason || "Payment verification failed",
-      };
+    // Call facilitator verify endpoint directly with X402-Version header
+    // The SDK doesn't include this header, but Cronos facilitator requires it
+    debugLog("Calling facilitator verify endpoint directly...");
+    
+    // Use the original payment header if provided, otherwise reconstruct it
+    // IMPORTANT: We should use the original header to preserve the exact signature
+    let paymentHeader: string;
+    if (originalPaymentHeader) {
+      paymentHeader = originalPaymentHeader;
+      debugLog("Using original payment header from client");
+    } else {
+      // Fallback: reconstruct header (may cause signature issues)
+      debugLog("WARNING: Reconstructing payment header - signature may be invalid");
+      paymentHeader = Buffer.from(JSON.stringify({
+        x402Version: payload.x402Version || 1,
+        scheme: paymentRequirement.scheme,
+        network: paymentRequirement.network,
+        payload: {
+          from: extractPayerAddress(payload) || (payload.payload as any)?.authorization?.from || (payload.payload as any)?.from,
+          to: paymentRequirement.payTo,
+          value: paymentRequirement.amount,
+          validAfter: (payload.payload as any)?.authorization?.validAfter || (payload.payload as any)?.validAfter || "0",
+          validBefore: (payload.payload as any)?.authorization?.validBefore || (payload.payload as any)?.validBefore,
+          nonce: (payload.payload as any)?.authorization?.nonce || (payload.payload as any)?.nonce,
+          signature: (payload.payload as any)?.signature,
+          asset: paymentRequirement.asset,
+        },
+      })).toString('base64');
     }
 
-    const payerAddress = verifyResult.payer || extractPayerAddress(payload);
-    const chainId = expectedDetails.testnet
-      ? CRONOS_TESTNET_CHAIN_ID
-      : CRONOS_MAINNET_CHAIN_ID;
-
-    debugLog("=== VERIFY PAYMENT SUCCESS ===", {
-      payerAddress,
-      chainId,
-    });
-
-    return {
-      valid: true,
-      payerAddress: payerAddress ?? undefined,
-      chainId,
+    const verifyRequestBody = {
+      x402Version: 1,
+      paymentHeader: paymentHeader,
+      paymentRequirements: {
+        scheme: paymentRequirement.scheme,
+        network: paymentRequirement.network,
+        payTo: paymentRequirement.payTo,
+        asset: paymentRequirement.asset,
+        description: "Agent execution payment",
+        mimeType: "application/json",
+        maxAmountRequired: paymentRequirement.amount,
+        maxTimeoutSeconds: paymentRequirement.maxTimeoutSeconds,
+      },
     };
+
+    debugLog("Verify request body", verifyRequestBody);
+
+    try {
+      const verifyResponse = await fetch(`${FACILITATOR_URL}/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X402-Version': '1',
+        },
+        body: JSON.stringify(verifyRequestBody),
+      });
+
+      const verifyData = await verifyResponse.json() as { isValid?: boolean; invalidReason?: string; payer?: string };
+      debugLog("Facilitator verify response", verifyData);
+
+      if (!verifyData.isValid) {
+        errorLog("Payment verification failed", {
+          isValid: verifyData.isValid,
+          invalidReason: verifyData.invalidReason,
+        });
+        return {
+          valid: false,
+          invalidReason: verifyData.invalidReason || "Payment verification failed",
+        };
+      }
+
+      const payerAddress = verifyData.payer || extractPayerAddress(payload);
+      const chainId = expectedDetails.testnet
+        ? CRONOS_TESTNET_CHAIN_ID
+        : CRONOS_MAINNET_CHAIN_ID;
+
+      debugLog("=== VERIFY PAYMENT SUCCESS ===", {
+        payerAddress,
+        chainId,
+      });
+
+      return {
+        valid: true,
+        payerAddress: payerAddress ?? undefined,
+        chainId,
+      };
+    } catch (fetchError) {
+      errorLog("Facilitator verify request failed", fetchError);
+      // Fallback to SDK method if direct call fails
+      debugLog("Falling back to SDK verifyPayment method...");
+      try {
+        const verifyResult = await server.verifyPayment(payload, paymentRequirement);
+        if (!verifyResult || !verifyResult.isValid) {
+          return {
+            valid: false,
+            invalidReason: verifyResult?.invalidReason || "Payment verification failed",
+          };
+        }
+        const payerAddress = verifyResult.payer || extractPayerAddress(payload);
+        return {
+          valid: true,
+          payerAddress: payerAddress ?? undefined,
+          chainId: expectedDetails.testnet ? CRONOS_TESTNET_CHAIN_ID : CRONOS_MAINNET_CHAIN_ID,
+        };
+      } catch (sdkError) {
+        errorLog("SDK verifyPayment also failed", sdkError);
+        return {
+          valid: false,
+          invalidReason: fetchError instanceof Error ? fetchError.message : "Verification failed",
+        };
+      }
+    }
   } catch (error) {
     errorLog("Payment verification threw exception", error);
     return {
@@ -327,7 +406,8 @@ export async function settlePayment(
     priceUsd: number;
     payTo: string;
     testnet?: boolean;
-  }
+  },
+  originalPaymentHeader?: string
 ): Promise<{
   success: boolean;
   txHash?: string;
@@ -365,39 +445,116 @@ export async function settlePayment(
 
     debugLog("Manually constructed payment requirement for settlement", paymentRequirement);
 
-    debugLog("Calling facilitator settlePayment...");
-    const settleResult = await server.settlePayment(payload, paymentRequirement);
-
-    debugLog("Facilitator settlement result", {
-      success: settleResult?.success,
-      transaction: settleResult?.transaction,
-      errorReason: settleResult?.errorReason,
-    });
-
-    if (!settleResult || !settleResult.success) {
-      errorLog("Payment settlement failed", {
-        success: settleResult?.success,
-        errorReason: settleResult?.errorReason,
-      });
-      return {
-        success: false,
-        error: settleResult?.errorReason || "Payment settlement failed",
-      };
+    // Call facilitator settle endpoint directly with X402-Version header
+    debugLog("Calling facilitator settle endpoint directly...");
+    
+    // Use the original payment header if provided, otherwise reconstruct it
+    // IMPORTANT: We should use the original header to preserve the exact signature
+    let paymentHeader: string;
+    if (originalPaymentHeader) {
+      paymentHeader = originalPaymentHeader;
+      debugLog("Using original payment header from client");
+    } else {
+      // Fallback: reconstruct header (may cause signature issues)
+      debugLog("WARNING: Reconstructing payment header - signature may be invalid");
+      paymentHeader = Buffer.from(JSON.stringify({
+        x402Version: payload.x402Version || 1,
+        scheme: paymentRequirement.scheme,
+        network: paymentRequirement.network,
+        payload: {
+          from: extractPayerAddress(payload) || (payload.payload as any)?.authorization?.from || (payload.payload as any)?.from,
+          to: paymentRequirement.payTo,
+          value: paymentRequirement.amount,
+          validAfter: (payload.payload as any)?.authorization?.validAfter || (payload.payload as any)?.validAfter || "0",
+          validBefore: (payload.payload as any)?.authorization?.validBefore || (payload.payload as any)?.validBefore,
+          nonce: (payload.payload as any)?.authorization?.nonce || (payload.payload as any)?.nonce,
+          signature: (payload.payload as any)?.signature,
+          asset: paymentRequirement.asset,
+        },
+      })).toString('base64');
     }
 
-    debugLog("=== SETTLE PAYMENT SUCCESS ===", {
-      txHash: settleResult.transaction,
-      network,
-    });
-
-    return {
-      success: true,
-      txHash: settleResult.transaction,
-      chainId: expectedDetails.testnet
-        ? CRONOS_TESTNET_CHAIN_ID
-        : CRONOS_MAINNET_CHAIN_ID,
-      network,
+    const settleRequestBody = {
+      x402Version: 1,
+      paymentHeader: paymentHeader,
+      paymentRequirements: {
+        scheme: paymentRequirement.scheme,
+        network: paymentRequirement.network,
+        payTo: paymentRequirement.payTo,
+        asset: paymentRequirement.asset,
+        description: "Agent execution payment",
+        mimeType: "application/json",
+        maxAmountRequired: paymentRequirement.amount,
+        maxTimeoutSeconds: paymentRequirement.maxTimeoutSeconds,
+      },
     };
+
+    debugLog("Settle request body", settleRequestBody);
+
+    try {
+      const settleResponse = await fetch(`${FACILITATOR_URL}/settle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X402-Version': '1',
+        },
+        body: JSON.stringify(settleRequestBody),
+      });
+
+      const settleData = await settleResponse.json() as { event?: string; success?: boolean; error?: string; errorReason?: string; txHash?: string };
+      debugLog("Facilitator settle response", settleData);
+
+      if (settleData.event !== 'payment.settled' || !settleData.success) {
+        errorLog("Payment settlement failed", {
+          event: settleData.event,
+          success: settleData.success,
+          error: settleData.error,
+        });
+        return {
+          success: false,
+          error: settleData.error || settleData.errorReason || "Payment settlement failed",
+        };
+      }
+
+      debugLog("=== SETTLE PAYMENT SUCCESS ===", {
+        txHash: settleData.txHash,
+        network,
+      });
+
+      return {
+        success: true,
+        txHash: settleData.txHash,
+        chainId: expectedDetails.testnet
+          ? CRONOS_TESTNET_CHAIN_ID
+          : CRONOS_MAINNET_CHAIN_ID,
+        network,
+      };
+    } catch (fetchError) {
+      errorLog("Facilitator settle request failed", fetchError);
+      // Fallback to SDK method if direct call fails
+      debugLog("Falling back to SDK settlePayment method...");
+      try {
+        const settleResult = await server.settlePayment(payload, paymentRequirement);
+        if (!settleResult || !settleResult.success) {
+          return {
+            success: false,
+            error: settleResult?.errorReason || "Payment settlement failed",
+          };
+        }
+        return {
+          success: true,
+          txHash: settleResult.transaction,
+          chainId: expectedDetails.testnet ? CRONOS_TESTNET_CHAIN_ID : CRONOS_MAINNET_CHAIN_ID,
+          network,
+        };
+      } catch (sdkError) {
+        errorLog("SDK settlePayment also failed", sdkError);
+        return {
+          success: false,
+          error: fetchError instanceof Error ? fetchError.message : "Settlement failed",
+        };
+      }
+    }
   } catch (error) {
     errorLog("Payment settlement threw exception", error);
     return {

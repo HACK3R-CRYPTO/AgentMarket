@@ -67,7 +67,7 @@ export function useX402Payment() {
 
   async function signPayment(
     paymentRequest: PaymentRequest
-  ): Promise<string> {
+  ): Promise<{ signature: string; nonce: string; validAfter: string; validBefore: string }> {
     if (!isConnected || !address) {
       throw new Error("Wallet not connected");
     }
@@ -124,27 +124,29 @@ export function useX402Payment() {
       message,
     });
 
-    return signature;
+    // Return signature AND the values used for signing so they can be reused in payment header
+    return {
+      signature,
+      nonce,
+      validAfter: "0", // String format for payment header
+      validBefore: String(validBefore), // String format for payment header
+    };
   }
 
   async function buildPaymentPayload(
     paymentRequest: PaymentRequest,
-    signature: string
+    signature: string,
+    nonce: string,
+    validAfter: string,
+    validBefore: string
   ): Promise<{ header: string; hash: string }> {
     const firstAccept = paymentRequest.accepts[0];
     if (!firstAccept || !address) {
       throw new Error("No payment option available or wallet not connected");
     }
 
-    const now = Math.floor(Date.now() / 1000);
-    const maxTimeoutSeconds = firstAccept.maxTimeoutSeconds || 300;
-    // According to Cronos docs: validAfter = 0 (valid immediately)
-    const validAfter = "0";
-    const validBefore = String(now + maxTimeoutSeconds);
-    const nonce = toHex(crypto.getRandomValues(new Uint8Array(32)));
-
-    // Payment header structure per Cronos documentation
-    // https://docs.cronos.org/cronos-x402-facilitator/quick-start-for-buyers
+    // Use the EXACT same nonce, validAfter, and validBefore that were used for signing
+    // This is critical - the signature verification will fail if these don't match!
     const paymentHeader = {
       x402Version: 1,
       scheme: firstAccept.scheme,
