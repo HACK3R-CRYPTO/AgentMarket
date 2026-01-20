@@ -102,6 +102,14 @@ router.get("/:id", async (req: Request, res: Response) => {
 
 router.post("/:id/execute", async (req: Request, res: Response) => {
   try {
+    console.log("=== Agent Execution Request ===");
+    console.log("Agent ID:", req.params.id);
+    console.log("Body:", JSON.stringify(req.body, null, 2));
+    console.log("Payment headers:", {
+      "x-payment-signature": req.headers["x-payment-signature"] ? "present" : "missing",
+      "payment-signature": req.headers["payment-signature"] ? "present" : "missing",
+    });
+
     const agentId = parseInt(req.params.id);
     const { input, paymentHash } = req.body;
 
@@ -110,15 +118,22 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
     }
 
     // Get agent details from contract
+    console.log("Fetching agent from contract...");
     const contractAgent = await getAgentFromContract(agentId);
     if (!contractAgent) {
+      console.log("Agent not found in contract");
       return res.status(404).json({ error: "Agent not found" });
     }
     
     const agentPrice = Number(contractAgent.pricePerExecution) / 1_000_000; // Convert from 6 decimals to USD
     const escrowAddress = process.env.AGENT_ESCROW_ADDRESS || "0xE2228Cf8a49Cd23993442E5EE5a39d6180E0d25f";
+    console.log("Agent price:", agentPrice, "USD, Escrow:", escrowAddress);
 
-    if (!paymentHash) {
+    // Check for payment header
+    const paymentHeader = req.headers["x-payment-signature"] || req.headers["payment-signature"];
+    console.log("Payment header present:", !!paymentHeader, "Payment hash in body:", !!paymentHash);
+
+    if (!paymentHash && !paymentHeader) {
       // Return 402 with payment requirements
       const paymentRequired = generatePaymentRequiredResponse({
         url: req.url || "",
@@ -134,26 +149,49 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
     }
 
     // Parse payment signature from headers
-    // Convert Express request to Web API Request for x402
+    console.log("Parsing payment signature...");
     const webRequest = new Request(`http://localhost${req.url}`, {
       method: req.method,
       headers: new Headers(req.headers as any),
       body: req.body ? JSON.stringify(req.body) : undefined,
     });
-    const paymentPayload = parsePaymentSignature(webRequest);
+    
+    let paymentPayload;
+    try {
+      paymentPayload = parsePaymentSignature(webRequest);
+    } catch (parseError) {
+      console.error("Payment parsing error:", parseError);
+      return res.status(402).json({
+        error: "Invalid payment signature format",
+        details: parseError instanceof Error ? parseError.message : String(parseError),
+      });
+    }
+    
     if (!paymentPayload) {
+      console.log("Payment payload is null");
       return res.status(402).json({
         error: "Invalid payment signature",
         paymentRequired: true,
       });
     }
+    console.log("Payment payload parsed successfully");
 
     // Verify payment
-    const verification = await verifyPayment(paymentPayload, {
-      priceUsd: agentPrice,
-      payTo: escrowAddress,
-      testnet: true,
-    });
+    console.log("Verifying payment...");
+    let verification;
+    try {
+      verification = await verifyPayment(paymentPayload, {
+        priceUsd: agentPrice,
+        payTo: escrowAddress,
+        testnet: true,
+      });
+    } catch (verifyError) {
+      console.error("Payment verification error:", verifyError);
+      return res.status(402).json({
+        error: "Payment verification failed",
+        details: verifyError instanceof Error ? verifyError.message : String(verifyError),
+      });
+    }
 
     if (!verification.valid) {
       return res.status(402).json({
@@ -162,16 +200,34 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
       });
     }
 
+    if (!verification.valid) {
+      console.log("Payment verification failed:", verification.invalidReason);
+      return res.status(402).json({
+        error: verification.invalidReason || "Payment verification failed",
+        paymentRequired: true,
+      });
+    }
+    console.log("Payment verified successfully");
+
     // Execute agent
+    console.log("Executing agent with Gemini...");
     const result = await executeAgent(agentId, input);
+    console.log("Agent execution result:", { success: result.success, outputLength: result.output?.length });
 
     // Settle payment if execution successful
     if (result.success) {
-      await settlePayment(paymentPayload, {
-        priceUsd: agentPrice,
-        payTo: escrowAddress,
-        testnet: true,
-      });
+      console.log("Settling payment...");
+      try {
+        await settlePayment(paymentPayload, {
+          priceUsd: agentPrice,
+          payTo: escrowAddress,
+          testnet: true,
+        });
+        console.log("Payment settled successfully");
+      } catch (settleError) {
+        console.error("Payment settlement error:", settleError);
+        // Don't fail the request if settlement fails, just log it
+      }
     }
 
     res.json({
