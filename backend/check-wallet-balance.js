@@ -7,7 +7,7 @@ const { ethers } = require('ethers');
 
 const CRONOS_RPC_URL = process.env.CRONOS_RPC_URL || "https://evm-t3.cronos.org";
 const BACKEND_PRIVATE_KEY = process.env.BACKEND_PRIVATE_KEY || process.env.PRIVATE_KEY;
-const AGENT_REGISTRY_ADDRESS = process.env.AGENT_REGISTRY_ADDRESS || "0x0f764437ffBE1fcd0d0d276a164610422710B482";
+const AGENT_REGISTRY_ADDRESS = process.env.AGENT_REGISTRY_ADDRESS || "0xd3097577Fa07E7CCD6D53C81460C449D96f736cC";
 
 async function checkWallet() {
   if (!BACKEND_PRIVATE_KEY) {

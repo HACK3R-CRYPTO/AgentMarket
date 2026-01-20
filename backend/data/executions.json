@@ -1,0 +1,14 @@
+[
+  {
+    "executionId": 4,
+    "agentId": 1,
+    "agentName": "Unified Chat Agent",
+    "userId": "0xd2df53D9791e98Db221842Dd085F4144014BBE2a",
+    "paymentHash": "0x1ec5675a8b7dad8e5b8cc78c28d974cc946a871706388243988ddd2ff97b5edb",
+    "input": "What's the price of Bitcoin?",
+    "output": "Accessing real-time market data...\n\nThe current price of Bitcoin (BTC) on Crypto.com Exchange is **$61,489.25**.",
+    "success": true,
+    "timestamp": 1768924827915,
+    "verified": true
+  }
+]

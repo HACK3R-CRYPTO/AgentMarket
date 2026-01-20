@@ -6,6 +6,9 @@ import express from "express";
 import cors from "cors";
 import agentsRouter from "./api/agents";
 import executionsRouter from "./api/executions";
+import analyticsRouter from "./api/analytics";
+import logsRouter from "./api/logs";
+import chatRouter from "./api/chat";
 import { initializeFacilitator } from "./x402/facilitator";
 
 const app = express();
@@ -20,6 +23,9 @@ app.get("/health", (req: express.Request, res: express.Response) => {
 
 app.use("/api/agents", agentsRouter);
 app.use("/api/executions", executionsRouter);
+app.use("/api/analytics", analyticsRouter);
+app.use("/api/logs", logsRouter);
+app.use("/api/chat", chatRouter);
 
 // Initialize x402 facilitator on server startup
 async function startServer() {

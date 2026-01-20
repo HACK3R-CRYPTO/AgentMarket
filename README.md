@@ -1,133 +1,105 @@
 # AgentMarket
 
-Buy AI agents. Use AI agents. Pay per use. On-chain verification. x402 micropayments on Cronos.
+Unified AI agent marketplace. Ask anything. System routes automatically. Real data. Pay per use. Built on Cronos with x402 micropayments.
 
 ## What You Get
 
-You browse AI agents. You find agents that do specific tasks. You pay per execution. Agents run on your request. Results return to you. Payments happen via x402 protocol. All transactions stay on Cronos blockchain. Agent registry stays on-chain. Reputation scores stay transparent.
+You ask questions. System detects what you need. Fetches real data. Returns accurate answers. Pay per message. No subscriptions. No gas fees.
+
+For users: ChatGPT-style interface. Automatic tool selection. Real cryptocurrency prices. Real blockchain data. Smart contract analysis. Content generation. All in one place.
+
+For developers: Register agents on-chain. Set your prices. Earn from every execution. Full analytics dashboard. Payment tracking. Time-based trends. Recent activity feed.
 
 ## How It Works
 
-Connect your wallet. Switch to Cronos testnet. Browse available agents. Select an agent. Pay via x402. Agent executes your request. Results return instantly. Payment settles automatically. Reputation updates on-chain.
+Connect your wallet. Go to chat. Ask questions. System detects intent. Fetches real data. Returns answers. Pay $0.10 per message. Instant results.
 
-## Your First Agent Execution
+Ask "What's the price of Bitcoin?" System fetches real price from Crypto.com Exchange. Returns current price with 24h change.
 
-Step one: Connect your wallet. Use MetaMask or WalletConnect. Switch to Cronos testnet. Get test tokens from faucet. You need TCRO for gas. You need devUSDC.e for payments.
+Ask "Check balance of 0x..." System queries Cronos blockchain via Crypto.com AI Agent SDK. Returns actual balance.
 
-Step two: Browse agents. View agent marketplace. See agent descriptions. See agent prices. See agent reputation scores. Choose an agent that fits your need.
+Ask "Analyze this contract..." System analyzes Solidity code. Returns security report.
 
-Step three: Execute agent. Provide your input. Confirm x402 payment. Agent processes your request. Results return to you. Payment settles on-chain.
+Ask "Create a tweet about DeFi" System generates marketing content. Returns ready-to-use copy.
 
-Step four: View results. See agent output. Verify execution quality. Check on-chain records. See reputation updates.
+## Your First Query
 
-## Available Agents
+Step one: Connect your wallet. Use MetaMask or WalletConnect. Switch to Cronos testnet. Get test tokens from faucet.
 
-Smart Contract Analyzer: Analyzes Solidity contracts. Finds vulnerabilities. Returns security report. Price: 0.10 USDC per analysis.
+Step two: Go to chat. Visit /chat page. See empty chat interface. Ready for questions.
 
-Market Data Agent: Fetches Crypto.com market data. Analyzes price trends. Returns market insights. Price: 0.05 USDC per request.
+Step three: Ask a question. Type "What's the price of Bitcoin?" Click send. System detects market data query.
 
-Content Generator: Creates marketing content. Generates Web3 copy. Returns formatted text. Price: 0.02 USDC per generation.
+Step four: Pay and get results. Create x402 payment. Pay $0.10 USDC. System fetches real Bitcoin price. Returns current price instantly.
 
-Portfolio Analyzer: Analyzes DeFi portfolios. Suggests optimizations. Returns strategy recommendations. Price: 0.15 USDC per analysis.
+Step five: Ask blockchain questions. Type "Check balance of 0x1234..." System uses Crypto.com AI Agent SDK. Queries Cronos blockchain. Returns real balance.
 
-## Agent Composition
+Step six: Ask contract questions. Type "Analyze this contract: [code]" System analyzes Solidity. Returns security report with vulnerabilities.
 
-Chain multiple agents together. Build complex workflows. Pay once for entire workflow. Results flow between agents. Each agent adds value. Final output combines all results.
+## Real Data Integration
 
-Example workflow: Market Data Agent fetches prices. Portfolio Analyzer processes holdings. Content Generator creates report. Single payment covers all three.
+Crypto.com Exchange API: Real-time cryptocurrency prices. No API key required. Works immediately. Fetches current prices. Volume data. 24h changes. Market statistics.
+
+Crypto.com AI Agent SDK: Natural language blockchain queries. Optional setup. Requires OpenAI API key and Cronos Explorer key. Enables queries like "Check balance of 0x..." or "Show transactions for address...". Converts natural language to blockchain queries. Returns real on-chain data.
+
+How to know when SDK is used: Check backend logs. Look for "Detected blockchain query, using Crypto.com AI Agent SDK" message. Look for "SDK Status: ACTIVE" in console. SDK queries appear in response with "Real Blockchain Data - Fetched via Crypto.com AI Agent SDK" prefix.
+
+## Agent Focus
+
+Agents stay focused. Auto-generated prompts enforce specialization. Agents decline off-topic questions. Agents explain what they can help with. No generic answers. Each agent has a domain. System enforces boundaries.
+
+Example: Agent description "Analyzes Solidity contracts" only answers contract questions. If asked about weather, agent politely declines and explains its specialization.
 
 ## Developer Portal
 
-List your own agents. Set your prices. Earn from agent usage. Track your earnings. View analytics. Manage your agents. All on-chain.
+Create agents. Fill form. Name. Description. Price. Register on-chain. Agent appears in marketplace. Users can execute. You earn revenue.
 
-## x402 Payment Integration
+Track analytics. Platform-wide metrics. Per-agent metrics. Execution counts. Success rates. Revenue tracking. Time-based trends. Today. 7 days. 30 days.
 
-Payments use x402 protocol. Micropayments work smoothly. No manual approvals needed. Automatic settlement. Receipts on-chain. All transparent.
+Monitor payments. All payments logged. Status breakdown. Pending. Settled. Refunded. Payment history. Execution logs. Recent activity feed.
 
-## On-Chain Features
+## Payment Flow
 
-Agent registry stays on blockchain. Execution records stay permanent. Reputation scores stay transparent. Payment history stays verifiable. All data stays accessible.
+User pays via x402. Payment goes to escrow contract. Backend settles payment. Backend releases payment to developer. Platform takes 10% fee. Developer receives 90% in their wallet.
 
-## Why Cronos
-
-Cronos offers low fees. Your payments stay efficient. Fast transactions mean quick results. x402 facilitator works seamlessly. Sub-second finality. High throughput. Built for real use. Perfect for agent marketplace.
-
-## Technical Details
-
-Web-based interface. No downloads. Works in any browser. Mobile responsive. Smart contract registry. Agent execution engine. x402 payment handler. OpenAI integration. Real-time updates.
+Example: User pays $0.10. Platform fee $0.01. Developer receives $0.09. All automatic. All on-chain. All transparent.
 
 ## Getting Started
 
 Frontend: Navigate to frontend folder. Run npm install. Run npm run dev. Visit localhost:3000.
 
-Contracts: See contracts README for setup. Deploy to Cronos testnet. Update frontend addresses.
+Backend: Navigate to backend folder. Run npm install. Add .env file with GEMINI_API_KEY and BACKEND_PRIVATE_KEY. Optional: Add OPENAI_API_KEY and CRONOS_TESTNET_EXPLORER_KEY for blockchain queries. Run npm run dev. Server runs on localhost:3001.
 
-Backend: See backend README for setup. Run agent execution server. Configure contract addresses.
+Contracts: Navigate to contracts folder. Run forge install. Run forge build. Deploy with forge script script/Deploy.s.sol --rpc-url https://evm-t3.cronos.org --broadcast.
 
 ## Deployed Contracts
 
 Cronos Testnet:
 
-Agent Registry: 0x0f764437ffBE1fcd0d0d276a164610422710B482
+Agent Registry: 0xd3097577Fa07E7CCD6D53C81460C449D96f736cC
 
-Agent Escrow: 0xE2228Cf8a49Cd23993442E5EE5a39d6180E0d25f
+Agent Escrow: 0x4352F2319c0476607F5E1cC9FDd568246074dF14
 
-View contracts on Cronoscan: https://testnet.cronoscan.com
+View contracts on Cronoscan Testnet.
 
 ## Network Configuration
 
-Testnet Chain ID: 338
-
-Network ID: eip155:338
+Chain ID: 338
 
 RPC URL: https://evm-t3.cronos.org
 
-USDC.e Contract: 0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0
+USDC.e: 0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0
 
-Faucet: https://cronos.org/faucet for TCRO. https://faucet.cronos.org for devUSDC.e
+Faucets: TCRO from cronos.org/faucet. devUSDC.e from faucet.cronos.org.
 
 ## Documentation
-
-[Contracts README](contracts/README.md): Smart contract setup and deployment details.
 
 [Frontend README](frontend/README.md): Frontend setup and feature documentation.
 
 [Backend README](backend/README.md): Backend setup and API documentation.
 
-## Hackathon Tracks
-
-**Selected Tracks (Primary Submission):**
-
-### 1. Main Track - x402 Applications
-**Why this track:**
-- **Agent-triggered payments**: Each AI agent execution automatically triggers x402 micropayment
-- **AI-driven contract interactions**: Agents interact with smart contracts (AgentRegistry, AgentEscrow)
-- **Dynamic payment flows**: Pay-per-use model with automatic settlement
-- **Real-world use case**: Marketplace for AI agents with seamless payment experience
-
-**Key Features:**
-- x402 v1 integration on Cronos testnet
-- Automatic payment verification before agent execution
-- Payment settlement after successful execution
-- Transparent on-chain payment records
-
-### 2. Agentic Finance Track
-**Why this track:**
-- **Multi-step agent workflows**: Chain multiple agents together for complex tasks
-- **Automated settlement pipelines**: Payments settle automatically based on execution success
-- **Conditional payment logic**: Refunds on failure, settlement on success
-- **Agent composition**: Build complex workflows with multiple agents and single payment
-
-**Key Features:**
-- Automated payment verification → execution → settlement flow
-- Multi-agent orchestration with payment coordination
-- On-chain reputation system affecting payment trust
-- Escrow-based payment security
-
-**Additional Track Eligibility:**
-- **Cronos Integration Track**: Cronos EVM smart contracts, x402 facilitator integration
-- **Dev Tooling Track**: Agent runtime orchestration, developer SDK potential
+[Contracts README](contracts/README.md): Smart contract setup and deployment details.
 
 ## Built for Hackathon
 
-AgentMarket built for Cronos x402 Paytech Hackathon. AI agent marketplace. x402 micropayments. On-chain verification. Smart contract registry. Agent composition. Reputation system. Ready for users. Production quality code.
+AgentMarket built for Cronos x402 Paytech Hackathon. Unified chat interface. Intelligent routing. Real-world data integration. x402 micropayments. On-chain agent registry. Full developer portal. Ready for users. Production quality code.

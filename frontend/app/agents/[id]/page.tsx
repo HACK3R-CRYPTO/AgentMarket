@@ -336,6 +336,19 @@ export default function AgentDetail() {
 
         <div className="bg-neutral-900 rounded-lg border border-neutral-800 shadow-lg p-6 md:p-8">
           <h2 className="text-2xl font-bold mb-4 text-neutral-50">Execute Agent</h2>
+          
+          {/* Disclaimer */}
+          <div className="mb-6 p-4 bg-blue-900/20 border border-blue-800 rounded-lg">
+            <p className="text-sm text-blue-300 flex items-start gap-2">
+              <span className="text-blue-400 mt-0.5">ℹ️</span>
+              <span>
+                <strong>Note:</strong> This agent uses AI (Google Gemini) to analyze and generate text based on your input. 
+                Results are AI-generated and should be verified for accuracy. The agent cannot access external systems, 
+                perform real-world actions, or guarantee specific outcomes.
+              </span>
+            </p>
+          </div>
+
           <div className="mb-6">
             <label className="block text-sm font-medium mb-2 text-neutral-300">
               Input

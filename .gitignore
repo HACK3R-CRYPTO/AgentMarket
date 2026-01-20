@@ -48,7 +48,7 @@ lib/
 # TypeScript
 *.tsbuildinfo
 
-# Documentation/Tracking files (ignore all .md except README.md)
+# Documentation/Tracking files (ignore all .md except README.md files)
 *.md
 !README.md
 !**/README.md

@@ -15,3 +15,12 @@ export const AGENT_REGISTRY_ABI = [
   "event ExecutionVerified(uint256 indexed executionId, bool success, string output)",
   "event ReputationUpdated(uint256 indexed agentId, uint256 newReputation)",
 ] as const;
+
+export const AGENT_ESCROW_ABI = [
+  "function releasePayment(bytes32 paymentHash, uint256 agentId) external",
+  "function refundPayment(bytes32 paymentHash, address payer) external",
+  "function escrowedAmounts(bytes32) external view returns (uint256)",
+  "function released(bytes32) external view returns (bool)",
+  "event PaymentReleased(bytes32 indexed paymentHash, address indexed developer, uint256 amount)",
+  "event PaymentRefunded(bytes32 indexed paymentHash, address indexed payer, uint256 amount)",
+] as const;

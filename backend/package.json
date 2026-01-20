@@ -36,5 +36,8 @@
     "dotenv": "^17.2.3",
     "ethers": "^6.16.0",
     "express": "^5.2.1"
+  },
+  "optionalDependencies": {
+    "@crypto.com/ai-agent-client": "^1.0.2"
   }
 }

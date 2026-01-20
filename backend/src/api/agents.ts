@@ -2,7 +2,8 @@ import { Router, Request, Response } from "express";
 import { verifyPayment, settlePayment, generatePaymentRequiredResponse } from "../x402/facilitator";
 import { decodePaymentSignatureHeader } from "@x402/core/http";
 import { executeAgent } from "../agent-engine/executor";
-import { getAllAgentsFromContract, getAgentFromContract, executeAgentOnContract, verifyExecutionOnContract } from "../lib/contract";
+import { getAllAgentsFromContract, getAgentFromContract, executeAgentOnContract, verifyExecutionOnContract, releasePaymentToDeveloper } from "../lib/contract";
+import { db } from "../lib/database";
 import { ethers } from "ethers";
 
 const router = Router();
@@ -129,7 +130,7 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
     }
     
     const agentPrice = Number(contractAgent.pricePerExecution) / 1_000_000; // Convert from 6 decimals to USD
-    const escrowAddress = process.env.AGENT_ESCROW_ADDRESS || "0xE2228Cf8a49Cd23993442E5EE5a39d6180E0d25f";
+    const escrowAddress = process.env.AGENT_ESCROW_ADDRESS || "0x4352F2319c0476607F5E1cC9FDd568246074dF14";
     console.log("Agent price:", agentPrice, "USD, Escrow:", escrowAddress);
 
     // Check for payment header (Cronos docs use X-PAYMENT, but we also support X-PAYMENT-SIGNATURE for compatibility)
@@ -262,10 +263,36 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
     console.log(`✅ Execution record created on contract with executionId: ${contractExecutionId}`);
     console.log("📊 totalExecutions has been incremented on-chain");
     
+    // Log payment to database
+    db.addPayment({
+      paymentHash: paymentHashBytes32,
+      agentId,
+      agentName: contractAgent.name,
+      userId: verification.payerAddress || "unknown",
+      amount: agentPrice,
+      status: "pending",
+      timestamp: Date.now(),
+      executionId: contractExecutionId,
+    });
+    
     // Step 2: Execute agent with AI (only if contract call succeeded)
     console.log("Executing agent with Gemini...");
     const result = await executeAgent(agentId, input);
     console.log("Agent execution result:", { success: result.success, outputLength: result.output?.length });
+    
+    // Log execution to database
+    db.addExecution({
+      executionId: contractExecutionId,
+      agentId,
+      agentName: contractAgent.name,
+      userId: verification.payerAddress || "unknown",
+      paymentHash: paymentHashBytes32,
+      input,
+      output: result.output || "",
+      success: result.success,
+      timestamp: Date.now(),
+      verified: false,
+    });
 
     // Step 3: Call verifyExecution on contract to update successfulExecutions and reputation
     // This ALWAYS runs (even if agent execution failed) to update metrics correctly
@@ -284,6 +311,9 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
         console.log("✅ Execution verified on contract - metrics updated (FAILURE)!");
         console.log("📊 successfulExecutions NOT incremented, reputation decreased");
       }
+      
+      // Update execution log
+      db.updateExecution(contractExecutionId, { verified: true });
     } else {
       console.error("❌ Failed to verify execution on contract - metrics partially updated!");
       console.error("⚠️  totalExecutions was incremented, but successfulExecutions/reputation were NOT updated");
@@ -300,13 +330,26 @@ router.post("/:id/execute", async (req: Request, res: Response) => {
           payTo: escrowAddress,
           testnet: true,
         }, headerString);
-        console.log("Payment settled successfully");
+        console.log("Payment settled to escrow successfully");
+        
+        // Step 5: Release payment to developer (minus platform fee)
+        console.log("Releasing payment to developer...");
+        const released = await releasePaymentToDeveloper(paymentHashBytes32, agentId);
+        if (released) {
+          console.log("✅ Payment released to developer successfully");
+          db.updatePayment(paymentHashBytes32, { status: "settled" });
+        } else {
+          console.warn("⚠️  Payment settlement succeeded but release to developer failed");
+          db.updatePayment(paymentHashBytes32, { status: "settled" }); // Still mark as settled
+        }
       } catch (settleError) {
         console.error("Payment settlement error:", settleError);
         // Don't fail the request if settlement fails, just log it
+        db.updatePayment(paymentHashBytes32, { status: "failed" });
       }
     } else {
       console.log("⚠️  Agent execution failed - payment NOT settled (user should get refund)");
+      db.updatePayment(paymentHashBytes32, { status: "refunded" });
     }
 
     res.json({

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { WalletConnect } from "@/components/WalletConnect";
 import { useAgents } from "@/hooks/useAgents";
 import { SplineSceneBasic } from "@/components/ui/spline-demo";
 import TetrisLoading from "@/components/ui/tetris-loader";
+import { Bot, Search, Filter } from "lucide-react";
 
 interface Agent {
   id: number;
@@ -18,6 +19,8 @@ export default function Home() {
   const { agents: contractAgents, loading: contractLoading } = useAgents();
   const [apiAgents, setApiAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   useEffect(() => {
     fetchAgents();
@@ -44,7 +47,7 @@ export default function Home() {
   };
 
   // Use contract agents if available, otherwise fall back to API
-  const agents = contractAgents.length > 0 
+  const allAgents = contractAgents.length > 0 
     ? contractAgents.map((a) => ({
         id: a.id,
         name: a.name,
@@ -53,6 +56,26 @@ export default function Home() {
         reputation: Number(a.reputation),
       }))
     : apiAgents;
+
+  // Filter agents based on search and category
+  const agents = useMemo(() => {
+    return allAgents.filter((agent) => {
+      // Search filter
+      const matchesSearch = !searchTerm || 
+        agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        agent.description.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Category filter (based on description keywords)
+      const desc = agent.description.toLowerCase();
+      const matchesCategory = categoryFilter === "all" || 
+        (categoryFilter === "market" && /market|price|trading|crypto|bitcoin|ethereum/i.test(desc)) ||
+        (categoryFilter === "blockchain" && /blockchain|balance|transaction|on-chain|wallet/i.test(desc)) ||
+        (categoryFilter === "contract" && /contract|solidity|security|audit|vulnerability/i.test(desc)) ||
+        (categoryFilter === "content" && /content|generate|write|marketing|tweet|blog/i.test(desc));
+      
+      return matchesSearch && matchesCategory;
+    });
+  }, [allAgents, searchTerm, categoryFilter]);
 
   // Debug logging
   useEffect(() => {
@@ -83,7 +106,15 @@ export default function Home() {
                 AI Agent Marketplace on Cronos
               </p>
             </div>
-            <WalletConnect />
+            <div className="flex items-center gap-4">
+              <a
+                href="/dashboard"
+                className="text-sm text-neutral-400 hover:text-neutral-50 transition-colors hidden md:block"
+              >
+                Dashboard
+              </a>
+              <WalletConnect />
+            </div>
           </div>
         </div>
       </header>
@@ -94,14 +125,74 @@ export default function Home() {
           <SplineSceneBasic />
         </div>
 
+        {/* Chat CTA */}
+        <div className="mb-8 p-6 bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-lg border border-blue-800/50">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Unified Chat Interface</h2>
+              <p className="text-neutral-300 mb-1">
+                Ask anything - I automatically use the right tools
+              </p>
+              <p className="text-sm text-neutral-400">
+                Market data • Blockchain queries • Contract analysis • Content generation
+              </p>
+            </div>
+            <a
+              href="/chat"
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-blue-500/20 flex items-center gap-2"
+            >
+              <Bot className="h-5 w-5" />
+              Start Chatting
+            </a>
+          </div>
+        </div>
+
         {/* Section Header */}
         <div className="mb-6 md:mb-8">
           <h2 className="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-neutral-50 to-neutral-400 mb-2">
-            Available Agents
+            Individual Agents
           </h2>
-          <p className="text-sm md:text-base text-neutral-400">
-            Select an agent to execute tasks with AI-powered capabilities
+          <p className="text-sm md:text-base text-neutral-400 mb-4">
+            Or select a specialized agent for specific tasks
           </p>
+
+          {/* Search and Filter */}
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search Bar */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-400" />
+              <input
+                type="text"
+                placeholder="Search agents by name or description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-600 focus:border-transparent text-neutral-50 placeholder-neutral-500"
+              />
+            </div>
+
+            {/* Category Filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-neutral-400" />
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="px-4 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-600 focus:border-transparent text-neutral-50"
+              >
+                <option value="all">All Categories</option>
+                <option value="market">Market Data</option>
+                <option value="blockchain">Blockchain</option>
+                <option value="contract">Smart Contracts</option>
+                <option value="content">Content Generation</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Results Count */}
+          {searchTerm || categoryFilter !== "all" ? (
+            <p className="mt-3 text-sm text-neutral-400">
+              Showing {agents.length} of {allAgents.length} agents
+            </p>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">

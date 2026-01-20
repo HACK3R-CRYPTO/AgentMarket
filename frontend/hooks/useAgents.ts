@@ -2,7 +2,7 @@
 
 import { useReadContract, useReadContracts } from "wagmi";
 import { AGENT_REGISTRY_ABI, getContractAddresses } from "@/lib/contracts";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 export interface Agent {
   id: number;
@@ -38,16 +38,20 @@ export function useAgents() {
   }, [nextAgentIdError]);
 
   // Build contract read requests for all agents
-  const agentIds = nextAgentId 
-    ? Array.from({ length: Number(nextAgentId) }, (_, i) => i + 1)
-    : [];
+  // Use useMemo to prevent infinite loops - only recreate when nextAgentId changes
+  const agentIds = useMemo(() => {
+    if (!nextAgentId) return [];
+    return Array.from({ length: Number(nextAgentId) }, (_, i) => i + 1);
+  }, [nextAgentId]);
 
-  const contractReads = agentIds.map((id) => ({
-    address: agentRegistry as `0x${string}`,
-    abi: AGENT_REGISTRY_ABI,
-    functionName: "getAgent" as const,
-    args: [BigInt(id)],
-  }));
+  const contractReads = useMemo(() => {
+    return agentIds.map((id) => ({
+      address: agentRegistry as `0x${string}`,
+      abi: AGENT_REGISTRY_ABI,
+      functionName: "getAgent" as const,
+      args: [BigInt(id)],
+    }));
+  }, [agentIds, agentRegistry]);
 
   const { data: agentsData, isLoading, error: agentsError } = useReadContracts({
     contracts: contractReads,
@@ -64,13 +68,13 @@ export function useAgents() {
   }, [agentsError]);
 
   // Process agents data
-  useEffect(() => {
+  // Use useMemo to prevent unnecessary recalculations
+  const processedAgents = useMemo(() => {
     if (!agentsData || !agentIds.length) {
-      setAgents([]);
-      return;
+      return [];
     }
 
-    const processedAgents: Agent[] = agentsData
+    return agentsData
       .map((data, index) => {
         if (!data || !data.result) return null;
         const result = data.result as any;
@@ -87,9 +91,12 @@ export function useAgents() {
         };
       })
       .filter((agent): agent is Agent => agent !== null && agent.active);
-
-    setAgents(processedAgents);
   }, [agentsData, agentIds]);
+
+  // Update state only when processedAgents actually changes
+  useEffect(() => {
+    setAgents(processedAgents);
+  }, [processedAgents]);
 
   return { agents, loading: isLoading };
 }

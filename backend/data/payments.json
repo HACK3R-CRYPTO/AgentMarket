@@ -1,0 +1,12 @@
+[
+  {
+    "paymentHash": "0x1ec5675a8b7dad8e5b8cc78c28d974cc946a871706388243988ddd2ff97b5edb",
+    "agentId": 1,
+    "agentName": "Unified Chat Agent",
+    "userId": "0xd2df53D9791e98Db221842Dd085F4144014BBE2a",
+    "amount": 0.1,
+    "status": "settled",
+    "timestamp": 1768924826350,
+    "executionId": 4
+  }
+]

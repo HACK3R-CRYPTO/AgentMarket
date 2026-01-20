@@ -70,12 +70,24 @@ contract AgentEscrow {
         uint256 agentId
     ) external {
         require(!released[paymentHash], "Already released");
-        require(escrowedAmounts[paymentHash] > 0, "No escrow");
 
         AgentRegistry.Agent memory agent = registry.getAgent(agentId);
         require(agent.developer != address(0), "Agent not found");
 
-        uint256 amount = escrowedAmounts[paymentHash];
+        uint256 amount;
+        
+        // Check if payment was escrowed via escrowPayment() function
+        if (escrowedAmounts[paymentHash] > 0) {
+            amount = escrowedAmounts[paymentHash];
+        } else {
+            // x402 payments go directly to escrow contract
+            // Use agent's pricePerExecution as the amount
+            amount = agent.pricePerExecution;
+            
+            // Record it in escrowedAmounts for tracking
+            escrowedAmounts[paymentHash] = amount;
+        }
+
         uint256 platformFee = (amount * platformFeeBps) / 10000;
         uint256 developerAmount = amount - platformFee;
 

@@ -92,18 +92,54 @@ export function X402Payment({
 
   return (
     <div className="mt-4">
-      <button
-        onClick={handlePayment}
-        disabled={paying || !isConnected}
-        className="w-full bg-neutral-800 hover:bg-neutral-700 disabled:bg-neutral-900 disabled:opacity-50 text-neutral-50 py-3 rounded-lg border border-neutral-700 hover:border-neutral-600 disabled:border-neutral-800 disabled:cursor-not-allowed transition-all duration-200 font-medium"
-      >
-        {paying
-          ? "Processing Payment..."
-          : `Pay $${priceUsd.toFixed(2)} USDC via x402`}
-      </button>
+      <div className="bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-lg border border-neutral-700 p-6 mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-neutral-50 mb-1">x402 Micropayment</h3>
+            <p className="text-sm text-neutral-400">Pay per execution with instant settlement</p>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-green-500">${priceUsd.toFixed(2)}</div>
+            <div className="text-xs text-neutral-500">USDC</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-neutral-400 mb-4">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span>Instant</span>
+          </div>
+          <span>•</span>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+            <span>Secure</span>
+          </div>
+          <span>•</span>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+            <span>On-chain</span>
+          </div>
+        </div>
+        <button
+          onClick={handlePayment}
+          disabled={paying || !isConnected}
+          className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-neutral-800 disabled:to-neutral-800 disabled:opacity-50 text-white py-3 rounded-lg font-medium shadow-lg hover:shadow-green-500/20 disabled:shadow-none disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
+        >
+          {paying ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span>Processing Payment...</span>
+            </>
+          ) : (
+            <>
+              <span>Pay ${priceUsd.toFixed(2)} USDC</span>
+              <span className="text-xs opacity-75">via x402</span>
+            </>
+          )}
+        </button>
+      </div>
       {!isConnected && (
-        <p className="text-sm text-neutral-500 mt-2 text-center">
-          Connect wallet to pay
+        <p className="text-sm text-neutral-500 text-center">
+          Connect your wallet to proceed with payment
         </p>
       )}
     </div>
