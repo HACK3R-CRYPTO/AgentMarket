@@ -84,7 +84,8 @@ async function getResourceServer(): Promise<x402ResourceServer> {
           serverInitialized = true;
           debugLog("x402 resource server initialized successfully");
           debugLog("hasRegisteredScheme", resourceServer!.hasRegisteredScheme(CRONOS_TESTNET_FACILITATOR, "exact"));
-          debugLog("getSupportedKind", resourceServer!.getSupportedKind(2, CRONOS_TESTNET_FACILITATOR, "exact"));
+          debugLog("getSupportedKind v1", resourceServer!.getSupportedKind(1, CRONOS_TESTNET_FACILITATOR, "exact"));
+          debugLog("getSupportedKind v2", resourceServer!.getSupportedKind(2, CRONOS_TESTNET_FACILITATOR, "exact"));
         } catch (error) {
           errorLog("Failed to initialize x402 resource server", error);
           throw error;
@@ -358,7 +359,8 @@ export async function generatePaymentRequiredResponse(config: {
     const server = await getResourceServer();
     debugLog("Facilitator initialized, checking supported schemes", {
       hasExact: server.hasRegisteredScheme(config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR, "exact"),
-      supportedKind: server.getSupportedKind(2, config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR, "exact"),
+      supportedKindV1: server.getSupportedKind(1, config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR, "exact"),
+      supportedKindV2: server.getSupportedKind(2, config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR, "exact"),
     });
   } catch (error) {
     errorLog("Failed to initialize facilitator for payment response", error);
@@ -369,8 +371,9 @@ export async function generatePaymentRequiredResponse(config: {
   const network = config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR;
   const usdcAsset = usdToUsdc(config.priceUsd, config.testnet);
 
+  // Cronos facilitator supports x402Version 1, not 2
   const response = {
-    x402Version: 2,
+    x402Version: 1,
     resource: {
       url: config.url,
       description: config.description,

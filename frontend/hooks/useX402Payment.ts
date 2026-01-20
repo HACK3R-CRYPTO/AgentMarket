@@ -40,8 +40,9 @@ export function useX402Payment() {
   ): Promise<PaymentRequest> {
     const amount = Math.floor(priceUsd * 1_000_000).toString();
 
+    // Cronos facilitator supports x402Version 1
     return {
-      x402Version: 2,
+      x402Version: 1,
       resource: {
         url: resourceUrl,
         description: `Payment for agent execution`,
@@ -139,8 +140,9 @@ export function useX402Payment() {
     const validBefore = String(now + maxTimeoutSeconds);
     const nonce = toHex(crypto.getRandomValues(new Uint8Array(32)));
 
+    // Cronos facilitator uses x402Version 1
     const paymentPayload = {
-      x402Version: 2,
+      x402Version: 1,
       payload: {
         signature,
         authorization: {
