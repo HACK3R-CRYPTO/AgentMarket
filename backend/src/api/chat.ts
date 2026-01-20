@@ -154,12 +154,14 @@ router.post("/", chatRateLimit, validateAgentInputMiddleware, async (req: Reques
             console.log(`[Chat] 📊 SDK Result: ${blockchainResult.substring(0, 100)}...`);
           } else {
             console.warn(`[Chat] ⚠️ SDK returned error or unavailable: ${blockchainResult}`);
+            // Don't add error to context - let agent work without blockchain data
           }
         } catch (error) {
           console.warn(`[Chat] ❌ Failed to fetch blockchain data via SDK:`, error);
+          // Don't fail the entire request - continue without blockchain data
         }
       } else {
-        console.log(`[Chat] ⚠️ Crypto.com AI Agent SDK not configured (missing OPENAI_API_KEY or CRONOS_TESTNET_EXPLORER_KEY)`);
+        console.log(`[Chat] ⚠️ Crypto.com AI Agent SDK not configured (missing GEMINI_API_KEY/OPENAI_API_KEY or CRONOS_TESTNET_EXPLORER_KEY)`);
       }
     }
 
@@ -177,53 +179,97 @@ ${needsContent ? "- **Content Generation**: You can create marketing content, tw
 - Use the real data provided to you (if any)
 - Provide a helpful, accurate, and professional response
 - Be clear and actionable
-- If you have real data, use it. If not, provide general guidance.
+- **IMPORTANT**: If real blockchain data is provided, use it directly. If no real data is provided, explain that blockchain query services are currently unavailable, but you can provide general information about how to check balances using blockchain explorers.
+
+## Response Format:
+- If you have real blockchain data: Present it clearly with the actual values
+- If you DON'T have real data: Explain that the blockchain query service is unavailable and suggest using a blockchain explorer like Cronoscan (https://testnet.cronoscan.com) to check the balance manually
+- **DO NOT** show Python code or tool_code commands - provide natural language responses only
 
 User Input:
 `;
 
     // Execute on contract
-    const contractExecutionId = await executeAgentOnContract(UNIFIED_AGENT_ID, paymentHashBytes32, input);
+    console.log(`[Chat] Executing agent on contract: Agent ID ${UNIFIED_AGENT_ID}, Payment Hash: ${paymentHashBytes32}`);
+    let contractExecutionId: number | null;
+    try {
+      contractExecutionId = await executeAgentOnContract(UNIFIED_AGENT_ID, paymentHashBytes32, input);
+    } catch (contractError) {
+      console.error("[Chat] ❌ Contract execution failed:", contractError);
+      return res.status(500).json({
+        error: "Contract execution failed",
+        details: contractError instanceof Error ? contractError.message : String(contractError),
+      });
+    }
     
     if (contractExecutionId === null) {
+      console.warn(`[Chat] ⚠️ Contract execution returned null - payment may be already used`);
       return res.status(402).json({
         error: "Payment already used or contract call failed",
         details: "The payment hash has already been used. Please create a new payment.",
         paymentRequired: true,
       });
     }
+    
+    console.log(`[Chat] ✅ Contract execution successful: Execution ID ${contractExecutionId}`);
 
     // Log payment
-    db.addPayment({
-      paymentHash: paymentHashBytes32,
-      agentId: UNIFIED_AGENT_ID,
-      agentName: "Unified Chat Agent",
-      userId: verification.payerAddress || "unknown",
-      amount: agentPrice,
-      status: "pending",
-      timestamp: Date.now(),
-      executionId: contractExecutionId,
-    });
+    try {
+      db.addPayment({
+        paymentHash: paymentHashBytes32,
+        agentId: UNIFIED_AGENT_ID,
+        agentName: "Unified Chat Agent",
+        userId: verification.payerAddress || "unknown",
+        amount: agentPrice,
+        status: "pending",
+        timestamp: Date.now(),
+        executionId: contractExecutionId,
+      });
+      console.log(`[Chat] ✅ Payment logged to database`);
+    } catch (dbError) {
+      console.warn(`[Chat] ⚠️ Failed to log payment to database:`, dbError);
+      // Continue execution even if DB logging fails
+    }
 
     // Execute with enhanced input
     const enhancedInputWithData = enhancedInput + realDataContext;
     
+    console.log(`[Chat] Executing agent with prompt (Agent ID: ${UNIFIED_AGENT_ID})...`);
+    console.log(`[Chat] Input length: ${enhancedInputWithData.length}, System prompt length: ${systemPrompt.length}`);
+    
     // Use a special execution function that accepts custom prompt
-    const result = await executeAgentWithPrompt(UNIFIED_AGENT_ID, enhancedInputWithData, systemPrompt);
+    let result;
+    try {
+      result = await executeAgentWithPrompt(UNIFIED_AGENT_ID, enhancedInputWithData, systemPrompt);
+      console.log(`[Chat] ✅ Agent execution successful: ${result.success ? "SUCCESS" : "FAILED"}`);
+    } catch (execError) {
+      console.error("[Chat] ❌ Agent execution failed:", execError);
+      // Still try to verify execution on contract even if agent execution failed
+      result = {
+        output: execError instanceof Error ? execError.message : "Agent execution failed",
+        success: false,
+      };
+    }
     
     // Log execution
-    db.addExecution({
-      executionId: contractExecutionId,
-      agentId: UNIFIED_AGENT_ID,
-      agentName: "Unified Chat Agent",
-      userId: verification.payerAddress || "unknown",
-      paymentHash: paymentHashBytes32,
-      input: enhancedInputWithData,
-      output: result.output || "",
-      success: result.success,
-      timestamp: Date.now(),
-      verified: false,
-    });
+    try {
+      db.addExecution({
+        executionId: contractExecutionId,
+        agentId: UNIFIED_AGENT_ID,
+        agentName: "Unified Chat Agent",
+        userId: verification.payerAddress || "unknown",
+        paymentHash: paymentHashBytes32,
+        input: enhancedInputWithData,
+        output: result.output || "",
+        success: result.success,
+        timestamp: Date.now(),
+        verified: false,
+      });
+      console.log(`[Chat] ✅ Execution logged to database`);
+    } catch (dbError) {
+      console.warn(`[Chat] ⚠️ Failed to log execution to database:`, dbError);
+      // Continue execution even if DB logging fails
+    }
 
     // Verify on contract
     const verified = await verifyExecutionOnContract(
@@ -247,14 +293,23 @@ User Input:
         console.log("Payment settled to escrow successfully");
         
         // Release payment to developer (minus platform fee)
-        console.log("Releasing payment to developer...");
-        const released = await releasePaymentToDeveloper(paymentHashBytes32, UNIFIED_AGENT_ID);
-        if (released) {
-          console.log("✅ Payment released to developer successfully");
-          db.updatePayment(paymentHashBytes32, { status: "settled" });
+        // For unified chat agent: check if agent has developer, if not skip release
+        console.log("Checking agent developer address...");
+        const agent = await getAgentFromContract(UNIFIED_AGENT_ID);
+        if (agent && agent.developer && agent.developer !== "0x0000000000000000000000000000000000000000") {
+          console.log("Releasing payment to developer...");
+          const released = await releasePaymentToDeveloper(paymentHashBytes32, UNIFIED_AGENT_ID);
+          if (released) {
+            console.log("✅ Payment released to developer successfully");
+            db.updatePayment(paymentHashBytes32, { status: "settled" });
+          } else {
+            console.warn("⚠️  Payment settlement succeeded but release to developer failed");
+            db.updatePayment(paymentHashBytes32, { status: "settled" }); // Still mark as settled
+          }
         } else {
-          console.warn("⚠️  Payment settlement succeeded but release to developer failed");
-          db.updatePayment(paymentHashBytes32, { status: "settled" }); // Still mark as settled
+          console.log("ℹ️  Unified chat agent has no developer address - skipping payment release");
+          console.log("   Payment is settled in escrow. For unified chat, this is expected.");
+          db.updatePayment(paymentHashBytes32, { status: "settled" });
         }
       } catch (settleError) {
         console.error("Payment settlement error:", settleError);
@@ -271,16 +326,35 @@ User Input:
       payerAddress: verification.payerAddress,
     });
   } catch (error) {
-    console.error("Error in chat:", error);
+    console.error("❌ Error in chat endpoint:", error);
+    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : String(error),
+      name: error instanceof Error ? error.name : typeof error,
+      body: req.body,
+      headers: {
+        "x-payment": req.headers["x-payment"] ? "present" : "missing",
+        "x-payment-signature": req.headers["x-payment-signature"] ? "present" : "missing",
+      },
+    });
     
     // Import error handler
-    const { sendErrorResponse } = require("../utils/errorHandler");
-    sendErrorResponse(
-      res,
-      error,
-      "Failed to process chat message",
-      500
-    );
+    try {
+      const { sendErrorResponse } = require("../utils/errorHandler");
+      sendErrorResponse(
+        res,
+        error,
+        "Failed to process chat message",
+        500
+      );
+    } catch (handlerError) {
+      console.error("❌ Error handler also failed:", handlerError);
+      res.status(500).json({
+        error: "Internal server error",
+        message: error instanceof Error ? error.message : String(error),
+        details: process.env.NODE_ENV === "development" ? (error instanceof Error ? error.stack : String(error)) : undefined,
+      });
+    }
   }
 });
 
@@ -292,20 +366,44 @@ async function executeAgentWithPrompt(
   input: string,
   customPrompt: string
 ): Promise<{ output: string; success: boolean }> {
-  // Import Gemini
-  const { GoogleGenerativeAI } = await import("@google/generative-ai");
+  // Try Gemini first, fallback to OpenRouter
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  const openRouterModel = process.env.OPENROUTER_MODEL || "openai/gpt-oss-120b:free";
   
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  let useOpenRouter = false;
+  let model: any;
+  let modelName: string;
+  
+  if (geminiApiKey) {
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    console.log(`[Chat] 🔑 Using Gemini API key (length: ${geminiApiKey.length}, starts with: ${geminiApiKey.substring(0, 10)}...)`);
+    const genAI = new GoogleGenerativeAI(geminiApiKey);
+    model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    modelName = "gemini-2.5-flash";
+    console.log(`[Chat] ✅ Gemini client initialized with model: ${modelName}`);
+  } else if (openRouterKey) {
+    useOpenRouter = true;
+    const { OpenAI } = await import("openai");
+    model = new OpenAI({
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: openRouterKey,
+      defaultHeaders: {
+        "HTTP-Referer": "https://agentmarket.app",
+        "X-Title": "AgentMarket",
+      },
+    });
+    modelName = openRouterModel;
+    console.log(`[Chat] 🔄 Using OpenRouter (model: ${modelName})`);
+  } else {
+    console.error(`[Chat] ❌ No AI provider configured. Set GEMINI_API_KEY or OPENROUTER_API_KEY`);
     return {
-      output: "Gemini API key not configured",
+      output: "AI provider not configured. Please set GEMINI_API_KEY or OPENROUTER_API_KEY in backend/.env",
       success: false,
     };
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+  // Build prompt (for Gemini) or use messages format (for OpenRouter)
   const prompt = `${customPrompt}${input}`;
 
   // Retry logic
@@ -317,34 +415,104 @@ async function executeAgentWithPrompt(
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       if (attempt > 1) {
+        console.log(`[Chat] 🔄 ${useOpenRouter ? 'OpenRouter' : 'Gemini'} API retry attempt ${attempt}/${maxRetries}...`);
         await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
       }
       
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      output = response.text();
+      console.log(`[Chat] 📤 Calling ${useOpenRouter ? 'OpenRouter' : 'Gemini'} API (attempt ${attempt}/${maxRetries})...`);
+      console.log(`[Chat] Prompt length: ${prompt.length} characters`);
+      
+      if (useOpenRouter) {
+        const completion = await model.chat.completions.create({
+          model: modelName,
+          messages: [
+            { role: "system", content: customPrompt },
+            { role: "user", content: input }
+          ],
+          temperature: 0.7,
+        });
+        output = completion.choices[0]?.message?.content || "";
+      } else {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        output = response.text();
+      }
+      console.log(`[Chat] ✅ ${useOpenRouter ? 'OpenRouter' : 'Gemini'} API call successful (response length: ${output.length})`);
       break;
     } catch (error: any) {
       lastError = error;
       const errorMessage = error?.message || String(error);
+      const errorCode = error?.code || error?.status || "unknown";
+      const errorStatus = error?.statusCode || "unknown";
+      
+      console.error(`[Chat] ❌ ${useOpenRouter ? 'OpenRouter' : 'Gemini'} API call failed (attempt ${attempt}/${maxRetries}):`, {
+        message: errorMessage,
+        code: errorCode,
+        status: errorStatus,
+        name: error?.name,
+        stack: error?.stack?.split('\n').slice(0, 3).join('\n'), // First 3 lines of stack
+      });
+      
+      // If Gemini quota exceeded and OpenRouter available, switch to OpenRouter
+      if (!useOpenRouter && errorMessage.includes("quota") && openRouterKey && attempt === 1) {
+        console.warn(`[Chat] ⚠️  Gemini quota exceeded, switching to OpenRouter fallback...`);
+        try {
+          const { OpenAI } = await import("openai");
+          useOpenRouter = true;
+          model = new OpenAI({
+            baseURL: "https://openrouter.ai/api/v1",
+            apiKey: openRouterKey,
+            defaultHeaders: {
+              "HTTP-Referer": "https://agentmarket.app",
+              "X-Title": "AgentMarket",
+            },
+          });
+          modelName = openRouterModel;
+          console.log(`[Chat] 🔄 Now using OpenRouter (model: ${modelName})`);
+          continue; // Retry with OpenRouter
+        } catch (importError) {
+          console.warn(`[Chat] ⚠️  Failed to import OpenAI package for OpenRouter fallback`);
+        }
+      }
+      
+      // Handle OpenRouter data policy error
+      if (useOpenRouter && errorMessage.includes("data policy") && errorMessage.includes("Free model publication")) {
+        console.error(`[Chat] ❌ OpenRouter data policy not configured for free models`);
+        console.error(`[Chat] 💡 Fix: Go to https://openrouter.ai/settings/privacy and enable "Free model publication"`);
+        return {
+          output: "OpenRouter data policy not configured. Please enable 'Free model publication' in your OpenRouter privacy settings: https://openrouter.ai/settings/privacy",
+          success: false,
+        };
+      }
+      
       const isRetryable = errorMessage.includes("503") || 
                          errorMessage.includes("429") || 
                          errorMessage.includes("500") ||
                          errorMessage.includes("overloaded") ||
                          errorMessage.includes("quota") ||
-                         errorMessage.includes("rate limit");
+                         errorMessage.includes("rate limit") ||
+                         errorCode === 503 ||
+                         errorCode === 429 ||
+                         errorStatus === 503 ||
+                         errorStatus === 429;
       
       if (isRetryable && attempt < maxRetries) {
+        console.log(`[Chat] ⚠️ Retryable error detected, will retry...`);
         continue;
       } else {
+        console.error(`[Chat] ❌ Non-retryable error or max retries reached, throwing error`);
         throw error;
       }
     }
   }
 
   if (!output) {
-    throw lastError || new Error("Failed to get response from Gemini");
+    const errorMsg = lastError ? (lastError instanceof Error ? lastError.message : String(lastError)) : "Failed to get response from Gemini";
+    console.error(`[Chat] ❌ Gemini API failed after ${maxRetries} attempts:`, errorMsg);
+    throw lastError || new Error(errorMsg);
   }
+  
+  console.log(`[Chat] ✅ Gemini API response received (length: ${output.length})`);
 
   const isValidLength = output.length > 10 && output.length < 100000;
   const looksLikeError = output.length < 100 && (

@@ -156,7 +156,7 @@ Holds payment until execution completes.
 
 #### releasePayment(bytes32 paymentHash, uint256 agentId)
 
-Releases payment to developer after success.
+Releases payment to developer after success. Requires agent to exist in registry with valid developer address.
 
 #### refundPayment(bytes32 paymentHash, address payer)
 

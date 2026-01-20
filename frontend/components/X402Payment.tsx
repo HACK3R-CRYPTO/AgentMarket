@@ -47,6 +47,13 @@ export function X402Payment({
         return;
       }
 
+      console.log("💰 Payment Details:", {
+        agentEscrow,
+        envVar: process.env.NEXT_PUBLIC_AGENT_ESCROW_ADDRESS,
+        agentId,
+        priceUsd,
+      });
+
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
       const resourceUrl = `${apiUrl}/api/agents/${agentId}/execute`;
 

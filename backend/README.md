@@ -1,6 +1,6 @@
 # AgentMarket Backend
 
-Node.js backend for AgentMarket. Agent execution engine. x402 payment handling. REST API endpoints. Cronos contract integration. Crypto.com API integration.
+Node.js backend for AgentMarket. Agent execution engine. x402 payment handling. REST API endpoints. Cronos contract integration. Crypto.com SDK integration.
 
 ## What This Backend Does
 
@@ -8,7 +8,7 @@ You receive agent execution requests. You verify x402 payments. You execute AI a
 
 ## Prerequisites
 
-Install Node.js 18 or higher. Install npm. Have Google Gemini API key. Have Cronos testnet access. Have backend wallet with private key (for contract updates). Optional: Have OpenAI API key for Crypto.com AI Agent SDK. Optional: Have Cronos Explorer API keys for blockchain queries.
+Install Node.js 18 or higher. Install npm. Have Google Gemini API key. Have Cronos testnet access. Have backend wallet with private key (for contract updates). Optional: Have Developer Platform API key for Crypto.com SDK. Optional: Have Cronos Explorer API keys for blockchain queries.
 
 ## Installation
 
@@ -37,15 +37,16 @@ AGENT_ESCROW_ADDRESS=0x4352F2319c0476607F5E1cC9FDd568246074dF14
 GEMINI_API_KEY=your-gemini-api-key-here
 BACKEND_PRIVATE_KEY=0x...your-private-key-here
 
-# Optional: Crypto.com AI Agent SDK (for blockchain queries)
-OPENAI_API_KEY=your-openai-key-here
+# Crypto.com Developer Platform SDK (for blockchain queries)
+CRYPTO_COM_DEVELOPER_PLATFORM_API_KEY=your-developer-platform-api-key-here
 CRONOS_TESTNET_EXPLORER_KEY=your-explorer-key-here
 ```
 
 Important notes:
 - BACKEND_PRIVATE_KEY is required for the backend to update contract metrics (executions, reputation)
 - GEMINI_API_KEY is required for AI agent execution
-- Crypto.com API keys are optional - market data works without them (public API)
+- CRYPTO_COM_DEVELOPER_PLATFORM_API_KEY is required for blockchain queries via SDK
+- CRONOS_TESTNET_EXPLORER_KEY is optional but recommended for blockchain queries
 - Never commit .env file (already in .gitignore)
 
 ## Development
@@ -77,7 +78,7 @@ backend/
 ├── src/
 │   ├── agent-engine/     # AI agent execution logic (Gemini + Crypto.com tools)
 │   │   ├── executor.ts   # Main execution engine
-│   │   └── tools.ts      # Crypto.com API integration
+│   │   └── tools.ts      # Crypto.com SDK integration
 │   ├── x402/            # x402 payment verification and settlement
 │   ├── api/             # REST API endpoints
 │   │   ├── agents.ts    # Agent execution and listing
@@ -179,13 +180,13 @@ Automatic integration: Agents with "market", "price", "trading" keywords get mar
 
 Example: User asks "What's the price of Bitcoin?" System fetches Real BTC price from Crypto.com API. Gemini receives Real data + user question. Gemini formats Professional response with real price.
 
-### Blockchain Data (Optional)
+### Blockchain Data via Developer Platform SDK
 
-Crypto.com AI Agent SDK: Agents with "blockchain", "contract", "transaction" keywords get blockchain access. Requires OpenAI API key + Cronos Explorer API keys. Enables natural language blockchain queries. Example: "Check balance of 0x..." → Returns real balance.
+Crypto.com Developer Platform Client SDK: Agents with "blockchain", "contract", "transaction" keywords get blockchain access. Requires Developer Platform API key from https://developer.crypto.com. Requires Cronos Explorer API key from https://explorer-api-doc.cronos.org. Uses Wallet.balance() method to fetch real blockchain data. Returns actual on-chain balances.
 
-Setup: Get OpenAI API key. Get Cronos Explorer API keys from https://explorer-api-doc.cronos.org. Add to .env file. Agents automatically get blockchain tools.
+Setup: Get Developer Platform API key from https://developer.crypto.com (create a project). Get Cronos Explorer API key from https://explorer-api-doc.cronos.org. Configure DNS to use Google DNS (8.8.8.8, 8.8.4.4) for endpoint access. Add keys to .env file. Agents automatically get blockchain tools.
 
-How to verify SDK usage: Check backend console logs. Look for "Detected blockchain query, using Crypto.com AI Agent SDK" message. Look for "SDK Status: ACTIVE" in console. SDK queries appear in response with "Real Blockchain Data - Fetched via Crypto.com AI Agent SDK" prefix.
+How to verify SDK usage: Check backend console logs. Look for "Developer Platform Client SDK initialized with API key" message. Look for "Using Developer Platform Client SDK (Wallet.balance)" in console. SDK queries return real blockchain data with status Success.
 
 ## x402 Payment Integration
 
@@ -203,7 +204,7 @@ Pre-configured agents: Agent #1 - Smart Contract Analyzer: Analyzes Solidity cod
 
 Auto-generated agents: New agents (Agent #5+) automatically get prompts generated from their description. System analyzes description to determine tools needed. Agents with "market" keywords → Get market data access. Agents with "blockchain" keywords → Get blockchain access. All agents work immediately after registration, no configuration needed.
 
-Tool detection: System automatically detects if agent needs real data. Market data agents get Crypto.com Exchange API access. Blockchain agents get Crypto.com AI Agent SDK access (if configured). Text-only agents work without tools.
+Tool detection: System automatically detects if agent needs real data. Market data agents get Crypto.com Exchange API access. Blockchain agents get Crypto.com Developer Platform SDK access (if configured). Text-only agents work without tools.
 
 Retry logic: Automatic retry for transient errors (503, 429, 500). Exponential backoff (2s, 4s, 6s delays). Up to 3 retry attempts. Logs retry attempts for debugging.
 
@@ -215,7 +216,7 @@ Metric updates: totalExecutions: Incremented when executeAgent() is called. succ
 
 Important: Metrics update even when agent execution fails. Failed execution increments totalExecutions but not successfulExecutions. Reputation decreases accordingly.
 
-Backend connects to AgentEscrow contract for payment verification.
+Backend connects to AgentEscrow contract for payment verification and release.
 
 ## Logging & Database
 
@@ -244,6 +245,8 @@ Agent execution fails: Check backend wallet has CRO for gas. Verify GEMINI_API_K
 Payment verification fails: Check X-PAYMENT header is present. Verify payment signature format. Check facilitator URL is correct. Ensure payment hash is unique.
 
 Contract interaction fails: Check backend wallet has gas fees. Verify contract address is correct. Check network connectivity. Ensure backend private key is correct.
+
+Blockchain queries fail: Check Developer Platform API key is set. Verify DNS is configured to use Google DNS (8.8.8.8, 8.8.4.4). Check Explorer API key is set. Verify SDK packages are installed.
 
 ## Testing
 
@@ -277,4 +280,5 @@ For issues or questions:
 - Cronos Documentation: https://docs.cronos.org
 - x402 Documentation: https://docs.cronos.org/x402
 - Google Gemini API: https://ai.google.dev
+- Crypto.com Developer Platform: https://developer.crypto.com
 - Node.js Documentation: https://nodejs.org/docs

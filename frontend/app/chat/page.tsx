@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import TetrisLoading from "@/components/ui/tetris-loader";
 import { Send, Bot, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { keccak256, toBytes } from "viem";
 
 interface Message {
   id: string;
@@ -56,6 +57,8 @@ export default function ChatPage() {
     if (paymentHeader && typeof window !== "undefined") {
       // Store for chat endpoint
       sessionStorage.setItem(`payment_chat`, paymentHeader);
+      // Also store the hash alongside the header for consistency
+      sessionStorage.setItem(`payment_chat_hash`, hash);
     }
     
     // Auto-send pending message if exists
@@ -87,6 +90,29 @@ export default function ChatPage() {
       // Get payment header from sessionStorage
       const paymentHeader = sessionStorage.getItem(`payment_chat`) || sessionStorage.getItem(`payment_1`) || "";
       
+      // Get payment hash - try state first, then sessionStorage, then compute from header
+      let hashToSend: string | null = paymentHash;
+      if (!hashToSend && typeof window !== "undefined") {
+        // Try to get from sessionStorage (stored when payment completed)
+        hashToSend = sessionStorage.getItem(`payment_chat_hash`) || sessionStorage.getItem(`payment_1_hash`);
+      }
+      
+      // If still null, compute from payment header (same method as backend)
+      if (!hashToSend && paymentHeader) {
+        try {
+          hashToSend = keccak256(toBytes(paymentHeader));
+          console.log("[Chat] ✅ Computed payment hash from header:", hashToSend);
+        } catch (error) {
+          console.warn("[Chat] ⚠️ Failed to compute payment hash from header:", error);
+        }
+      }
+      
+      console.log("[Chat] Payment details:", {
+        hasHeader: !!paymentHeader,
+        hasHash: !!hashToSend,
+        hashSource: paymentHash ? "state" : (sessionStorage.getItem(`payment_chat_hash`) ? "sessionStorage" : "computed"),
+      });
+      
       // Use unified chat endpoint
       const response = await fetch(`${apiUrl}/api/chat`, {
         method: "POST",
@@ -96,7 +122,7 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           input: messageInput,
-          paymentHash: paymentHash,
+          paymentHash: hashToSend,
         }),
       });
 

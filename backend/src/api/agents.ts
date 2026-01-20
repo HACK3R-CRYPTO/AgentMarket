@@ -139,7 +139,12 @@ router.post("/:id/execute", agentExecutionRateLimit, validateAgentInputMiddlewar
     
     const agentPrice = Number(contractAgent.pricePerExecution) / 1_000_000; // Convert from 6 decimals to USD
     const escrowAddress = process.env.AGENT_ESCROW_ADDRESS || "0x4352F2319c0476607F5E1cC9FDd568246074dF14";
-    console.log("Agent price:", agentPrice, "USD, Escrow:", escrowAddress);
+    console.log("💰 Payment Verification Details:", {
+      agentPrice: `${agentPrice} USD`,
+      escrowAddress,
+      envVar: process.env.AGENT_ESCROW_ADDRESS || "using fallback",
+      agentId,
+    });
 
     // Check for payment header (Cronos docs use X-PAYMENT, but we also support X-PAYMENT-SIGNATURE for compatibility)
     const paymentHeader = req.headers["x-payment"] || 

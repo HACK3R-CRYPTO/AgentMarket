@@ -16,7 +16,7 @@ Connect your wallet. Go to chat. Ask questions. System detects intent. Fetches r
 
 Ask "What's the price of Bitcoin?" System fetches real price from Crypto.com Exchange. Returns current price with 24h change.
 
-Ask "Check balance of 0x..." System queries Cronos blockchain via Crypto.com AI Agent SDK. Returns actual balance.
+Ask "Check balance of 0x..." System queries Cronos blockchain via Crypto.com Developer Platform SDK. Returns actual balance.
 
 Ask "Analyze this contract..." System analyzes Solidity code. Returns security report.
 
@@ -32,7 +32,7 @@ Step three: Ask a question. Type "What's the price of Bitcoin?" Click send. Syst
 
 Step four: Pay and get results. Create x402 payment. Pay $0.10 USDC. System fetches real Bitcoin price. Returns current price instantly.
 
-Step five: Ask blockchain questions. Type "Check balance of 0x1234..." System uses Crypto.com AI Agent SDK. Queries Cronos blockchain. Returns real balance.
+Step five: Ask blockchain questions. Type "Check balance of 0x1234..." System uses Crypto.com Developer Platform SDK. Queries Cronos blockchain. Returns real balance.
 
 Step six: Ask contract questions. Type "Analyze this contract: [code]" System analyzes Solidity. Returns security report with vulnerabilities.
 
@@ -40,9 +40,9 @@ Step six: Ask contract questions. Type "Analyze this contract: [code]" System an
 
 Crypto.com Exchange API: Real-time cryptocurrency prices. No API key required. Works immediately. Fetches current prices. Volume data. 24h changes. Market statistics.
 
-Crypto.com AI Agent SDK: Natural language blockchain queries. Optional setup. Requires OpenAI API key and Cronos Explorer key. Enables queries like "Check balance of 0x..." or "Show transactions for address...". Converts natural language to blockchain queries. Returns real on-chain data.
+Crypto.com Developer Platform Client SDK: Natural language blockchain queries. Requires Developer Platform API key and Cronos Explorer key. Enables queries like "Check balance of 0x..." or "Show transactions for address...". Uses Wallet.balance() method to fetch real on-chain data. Returns actual blockchain balances. Fully integrated and working.
 
-How to know when SDK is used: Check backend logs. Look for "Detected blockchain query, using Crypto.com AI Agent SDK" message. Look for "SDK Status: ACTIVE" in console. SDK queries appear in response with "Real Blockchain Data - Fetched via Crypto.com AI Agent SDK" prefix.
+How to know when SDK is used: Check backend logs. Look for "Using Developer Platform Client SDK (Wallet.balance)" message. Look for "Balance fetched via Developer Platform SDK" in console. SDK queries return real blockchain data with status Success.
 
 ## Agent Focus
 
@@ -64,13 +64,17 @@ User pays via x402. Payment goes to escrow contract. Backend settles payment. Ba
 
 Example: User pays $0.10. Platform fee $0.01. Developer receives $0.09. All automatic. All on-chain. All transparent.
 
+## Technical Achievements
+
+Crypto.com Developer Platform Client SDK fully integrated. Real blockchain data queries working. Balance queries return actual on-chain data. DNS configuration fixed for endpoint access. Multi-layer fallback system implemented. SDK methods handle authentication internally. Wallet.balance() successfully fetches blockchain data.
+
 ## Getting Started
 
 Frontend: Navigate to frontend folder. Run npm install. Run npm run dev. Visit localhost:3000.
 
 Contracts: See contracts README for setup. Deploy to Cronos testnet. Update frontend addresses.
 
-Backend: See backend README for setup. Run validation server. Configure contract addresses.
+Backend: See backend README for setup. Run validation server. Configure contract addresses. Set Developer Platform API key. Set Cronos Explorer key. Configure DNS to use Google DNS (8.8.8.8, 8.8.4.4) for SDK endpoint access.
 
 ## Deployed Contracts
 
@@ -102,4 +106,4 @@ Faucets: TCRO from cronos.org/faucet. devUSDC.e from faucet.cronos.org.
 
 ## Built for Hackathon
 
-AgentMarket built for Cronos x402 Paytech Hackathon. Unified chat interface. Intelligent routing. Real-world data integration. x402 micropayments. On-chain agent registry. Full developer portal. Ready for users. Production quality code.
+AgentMarket built for Cronos x402 Paytech Hackathon. Unified chat interface. Intelligent routing. Real-world data integration. x402 micropayments. On-chain agent registry. Full developer portal. Crypto.com SDK integration complete. Ready for users. Production quality code.

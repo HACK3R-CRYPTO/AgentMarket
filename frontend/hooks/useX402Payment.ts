@@ -40,6 +40,12 @@ export function useX402Payment() {
   ): Promise<PaymentRequest> {
     const amount = Math.floor(priceUsd * 1_000_000).toString();
 
+    // Normalize address using getAddress (checksums it)
+    // This ensures consistent address format
+    const normalizedPayTo = getAddress(payTo);
+    
+    console.log("Creating payment request with payTo:", normalizedPayTo);
+
     // Cronos facilitator supports x402Version 1
     return {
       x402Version: 1,
@@ -53,7 +59,7 @@ export function useX402Payment() {
           scheme: "exact",
           network: "cronos-testnet",
           amount,
-          payTo: getAddress(payTo),
+          payTo: normalizedPayTo,
           asset: getAddress(USDC_CRONOS_TESTNET),
           maxTimeoutSeconds: 300,
           extra: {

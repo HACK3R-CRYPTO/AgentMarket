@@ -21,6 +21,29 @@ function getGenAI(): GoogleGenerativeAI {
   return new GoogleGenerativeAI(apiKey);
 }
 
+// OpenRouter fallback (OpenAI-compatible)
+async function getOpenRouterClient() {
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  if (!openRouterKey) {
+    return null;
+  }
+  
+  try {
+    const { OpenAI } = await import("openai");
+    return new OpenAI({
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: openRouterKey,
+      defaultHeaders: {
+        "HTTP-Referer": "https://agentmarket.app", // Optional, for analytics
+        "X-Title": "AgentMarket", // Optional, for analytics
+      },
+    });
+  } catch (error) {
+    console.warn("⚠️ OpenAI package not installed. Install with: npm install openai");
+    return null;
+  }
+}
+
 // Generate default prompt from agent description
 function generateDefaultPrompt(description: string): string {
   return `You are an AI agent specialized in: ${description}
@@ -160,11 +183,34 @@ export async function executeAgent(
       };
     }
 
-    console.log("🔑 Using Gemini API key (length:", apiKey.length + ")");
-    const model = getGenAI().getGenerativeModel({ 
-      model: config.model || "gemini-2.5-flash" 
-    });
-    console.log("📤 Calling Gemini model:", config.model || "gemini-2.5-flash");
+    // Try Gemini first, fallback to OpenRouter if quota exceeded
+    let useOpenRouter = false;
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    const openRouterModel = process.env.OPENROUTER_MODEL || "openai/gpt-oss-120b:free";
+    
+    let model: any;
+    let modelName: string;
+    
+    if (geminiApiKey) {
+      console.log("🔑 Using Gemini API key (length:", geminiApiKey.length + ")");
+      model = getGenAI().getGenerativeModel({ 
+        model: config.model || "gemini-2.5-flash" 
+      });
+      modelName = config.model || "gemini-2.5-flash";
+      console.log("📤 Calling Gemini model:", modelName);
+    } else if (openRouterKey) {
+      useOpenRouter = true;
+      const openRouterClient = await getOpenRouterClient();
+      if (!openRouterClient) {
+        throw new Error("OpenRouter client creation failed. Install openai package: npm install openai");
+      }
+      model = openRouterClient;
+      modelName = openRouterModel;
+      console.log("🔄 Using OpenRouter fallback (model:", modelName + ")");
+    } else {
+      throw new Error("No AI provider configured. Set GEMINI_API_KEY or OPENROUTER_API_KEY");
+    }
 
     // Get agent description for tool detection
     let agentDescription = "";
@@ -251,9 +297,23 @@ export async function executeAgent(
           await new Promise(resolve => setTimeout(resolve, retryDelay * attempt)); // Exponential backoff
         }
         
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        output = response.text();
+        if (useOpenRouter) {
+          // OpenRouter uses OpenAI-compatible API
+          const completion = await model.chat.completions.create({
+            model: modelName,
+            messages: [
+              { role: "system", content: config.systemPrompt },
+              { role: "user", content: enhancedInput }
+            ],
+            temperature: 0.7,
+          });
+          output = completion.choices[0]?.message?.content || "";
+        } else {
+          // Gemini API
+          const result = await model.generateContent(prompt);
+          const response = await result.response;
+          output = response.text();
+        }
         break; // Success, exit retry loop
       } catch (error: any) {
         lastError = error;
@@ -266,6 +326,19 @@ export async function executeAgent(
                            errorMessage.includes("overloaded") ||
                            errorMessage.includes("quota") ||
                            errorMessage.includes("rate limit");
+        
+        // If Gemini quota exceeded and OpenRouter available, switch to OpenRouter
+        if (!useOpenRouter && errorMessage.includes("quota") && openRouterKey && attempt === 1) {
+          console.warn(`⚠️  Gemini quota exceeded, switching to OpenRouter fallback...`);
+          const openRouterClient = await getOpenRouterClient();
+          if (openRouterClient) {
+            useOpenRouter = true;
+            model = openRouterClient;
+            modelName = openRouterModel;
+            console.log(`🔄 Now using OpenRouter (model: ${modelName})`);
+            continue; // Retry with OpenRouter
+          }
+        }
         
         if (isRetryable && attempt < maxRetries) {
           console.warn(`⚠️  Attempt ${attempt} failed with retryable error: ${errorMessage.split('\n')[0]}`);

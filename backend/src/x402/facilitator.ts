@@ -136,15 +136,19 @@ export function buildExactPaymentOption(config: {
   // Use facilitator's network format for payment options
   const network = config.testnet ? CRONOS_TESTNET_FACILITATOR : CRONOS_MAINNET_FACILITATOR;
 
+  // Normalize address to lowercase for consistency (Ethereum addresses are case-insensitive)
+  // But keep original for display - facilitator should handle both
+  const normalizedPayTo = config.payTo.toLowerCase();
+
   const option = {
     scheme: "exact" as const,
     network,
     price: config.price,
-    payTo: config.payTo,
+    payTo: normalizedPayTo,
     maxTimeoutSeconds: config.maxTimeoutSeconds ?? 300,
   };
 
-  debugLog("Built exact payment option", option);
+  debugLog("Built exact payment option", { ...option, originalPayTo: config.payTo });
   return option;
 }
 
@@ -250,6 +254,34 @@ export async function verifyPayment(
 }> {
   debugLog("=== VERIFY PAYMENT START ===");
   debugLog("Expected details", expectedDetails);
+  
+  // Extract payTo from payment payload for comparison
+  let paymentPayTo: string | undefined;
+  if (payload.accepted?.payTo) {
+    paymentPayTo = payload.accepted.payTo.toLowerCase();
+  } else if ((payload.payload as any)?.to) {
+    paymentPayTo = (payload.payload as any).to.toLowerCase();
+  } else if ((payload.payload as any)?.authorization?.to) {
+    paymentPayTo = (payload.payload as any).authorization.to.toLowerCase();
+  }
+  
+  const expectedPayTo = expectedDetails.payTo.toLowerCase();
+  debugLog("Address comparison", {
+    paymentPayTo,
+    expectedPayTo,
+    match: paymentPayTo === expectedPayTo,
+  });
+  
+  if (paymentPayTo && paymentPayTo !== expectedPayTo) {
+    errorLog("PayTo address mismatch", {
+      paymentPayTo,
+      expectedPayTo,
+    });
+    return {
+      valid: false,
+      invalidReason: `Recipient does not match payTo address. Payment has ${paymentPayTo}, expected ${expectedPayTo}`,
+    };
+  }
 
   try {
     const server = await getResourceServer();
