@@ -30,23 +30,54 @@ export function useAgents() {
     },
   });
 
-  // Fetch all agents
+  // Build contract read requests for all agents
+  const agentIds = nextAgentId 
+    ? Array.from({ length: Number(nextAgentId) }, (_, i) => i + 1)
+    : [];
+
+  const contractReads = agentIds.map((id) => ({
+    address: agentRegistry as `0x${string}`,
+    abi: AGENT_REGISTRY_ABI,
+    functionName: "getAgent" as const,
+    args: [BigInt(id)],
+  }));
+
+  const { data: agentsData, isLoading } = useReadContracts({
+    contracts: contractReads,
+    query: {
+      enabled: agentRegistry !== "0x..." && agentIds.length > 0,
+    },
+  });
+
+  // Process agents data
   useEffect(() => {
-    if (!nextAgentId || agentRegistry === "0x...") {
+    if (!agentsData || !agentIds.length) {
+      setAgents([]);
       return;
     }
 
-    const agentIds = Array.from(
-      { length: Number(nextAgentId) },
-      (_, i) => i + 1
-    );
+    const processedAgents: Agent[] = agentsData
+      .map((data, index) => {
+        if (!data || !data.result) return null;
+        const result = data.result as any;
+        return {
+          id: agentIds[index],
+          developer: result[0],
+          name: result[1],
+          description: result[2],
+          pricePerExecution: result[3],
+          totalExecutions: result[4],
+          successfulExecutions: result[5],
+          reputation: result[6],
+          active: result[7],
+        };
+      })
+      .filter((agent): agent is Agent => agent !== null && agent.active);
 
-    // For now, return empty array - will implement contract reads
-    // This requires multiple contract calls which we'll optimize later
-    setAgents([]);
-  }, [nextAgentId, agentRegistry]);
+    setAgents(processedAgents);
+  }, [agentsData, agentIds]);
 
-  return { agents, loading: false };
+  return { agents, loading: isLoading };
 }
 
 export function useAgent(agentId: number) {

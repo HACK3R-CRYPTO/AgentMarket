@@ -1,8 +1,6 @@
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 interface AgentConfig {
   systemPrompt: string;
@@ -17,7 +15,7 @@ const AGENT_CONFIGS: Record<number, AgentConfig> = {
 - Low severity issues
 - Recommendations for fixes
 Format your response as a clear, professional security audit report.`,
-    model: "gpt-4",
+    model: "gemini-1.5-pro",
   },
   2: {
     systemPrompt: `You are a cryptocurrency market data analyst. Analyze the provided market data and provide insights about:
@@ -26,7 +24,7 @@ Format your response as a clear, professional security audit report.`,
 - Trading opportunities
 - Risk factors
 Format your response as a clear market analysis report.`,
-    model: "gpt-4",
+    model: "gemini-1.5-pro",
   },
   3: {
     systemPrompt: `You are a marketing copywriter specializing in Web3 and cryptocurrency projects. Generate engaging, professional marketing content based on the provided brief. Your content should be:
@@ -35,7 +33,7 @@ Format your response as a clear market analysis report.`,
 - Professional tone
 - Action-oriented
 Format your response as ready-to-use marketing copy.`,
-    model: "gpt-4",
+    model: "gemini-1.5-pro",
   },
   4: {
     systemPrompt: `You are a DeFi portfolio analyst. Analyze the provided portfolio information and provide:
@@ -44,7 +42,7 @@ Format your response as ready-to-use marketing copy.`,
 - Optimization recommendations
 - Strategy suggestions
 Format your response as a comprehensive portfolio analysis report.`,
-    model: "gpt-4",
+    model: "gemini-1.5-pro",
   },
 };
 
@@ -61,24 +59,22 @@ export async function executeAgent(
       };
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return {
-        output: "OpenAI API key not configured",
+        output: "Gemini API key not configured",
         success: false,
       };
     }
 
-    const response = await openai.chat.completions.create({
-      model: config.model || "gpt-4",
-      messages: [
-        { role: "system", content: config.systemPrompt },
-        { role: "user", content: input },
-      ],
-      temperature: 0.7,
-      max_tokens: 2000,
+    const model = genAI.getGenerativeModel({ 
+      model: config.model || "gemini-1.5-pro" 
     });
 
-    const output = response.choices[0]?.message?.content || "";
+    const prompt = `${config.systemPrompt}\n\nUser Input:\n${input}`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const output = response.text();
 
     if (!output) {
       return {
