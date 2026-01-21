@@ -17,7 +17,14 @@ import { apiRateLimit } from "./middleware/rateLimit";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    "https://agent-market-teal.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:3001"
+  ],
+  credentials: true
+}));
 app.use(express.json({ limit: "10mb" })); // Limit request body size
 
 // Health check endpoints (no rate limiting)
