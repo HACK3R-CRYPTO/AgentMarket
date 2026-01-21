@@ -14,6 +14,7 @@ const MCP_MARKET_DATA_URL = "https://mcp.crypto.com/market-data/mcp";
 // MCP Client instance (lazy initialized)
 let mcpClient: any = null;
 let mcpClientInitialized = false;
+let mcpTools: any = null;
 
 export interface AgentTools {
   hasBlockchainAccess: boolean;

@@ -800,38 +800,39 @@ router.post("/", chatRateLimit, validateAgentInputMiddleware, async (req: Reques
         
         console.log(`[Chat] 🔍 Scanning last ${blocksToCheck} blocks for transactions...`);
         
-        for (let i = 0; i < blocksToCheck && txList.length < 10; i++) {
-          try {
-            const blockNumber = currentBlock - i;
-            const block = await provider.getBlock(blockNumber, true); // true = include transactions
-            
-            if (block && block.transactions && Array.isArray(block.transactions)) {
-              for (const txHash of block.transactions) {
-                if (txList.length >= 10) break;
-                
-                try {
-                  const tx = await provider.getTransaction(txHash);
-                  if (tx && tx.hash && 
-                      (tx.from?.toLowerCase() === addressLower || 
-                       tx.to?.toLowerCase() === addressLower)) {
-                    txList.push({
-                      hash: tx.hash,
-                      from: tx.from || 'N/A',
-                      to: tx.to || 'N/A',
-                      value: tx.value ? ethers.formatEther(tx.value) + ' CRO' : '0 CRO',
-                      timestamp: block.timestamp ? Number(block.timestamp) * 1000 : Date.now(),
-                      blockNumber: Number(block.number)
-                    });
-                  }
-                } catch (txError) {
-                  // Skip individual tx errors
+        // Fetch blocks in parallel for speed
+        const blockPromises = [];
+        for (let i = 0; i < blocksToCheck; i++) {
+          blockPromises.push(provider.getBlock(currentBlock - i, true).catch(e => null));
+        }
+        
+        const blocks = await Promise.all(blockPromises);
+        
+        for (const block of blocks) {
+          if (!block || txList.length >= 10) continue;
+          
+          if (block.transactions && Array.isArray(block.transactions)) {
+            for (const txHash of block.transactions) {
+              if (txList.length >= 10) break;
+              
+              try {
+                const tx = await provider.getTransaction(txHash);
+                if (tx && tx.hash && 
+                    (tx.from?.toLowerCase() === addressLower || 
+                     tx.to?.toLowerCase() === addressLower)) {
+                  txList.push({
+                    hash: tx.hash,
+                    from: tx.from || 'N/A',
+                    to: tx.to || 'N/A',
+                    value: tx.value ? ethers.formatEther(tx.value) + ' CRO' : '0 CRO',
+                    timestamp: block.timestamp ? Number(block.timestamp) * 1000 : Date.now(),
+                    blockNumber: Number(block.number)
+                  });
                 }
+              } catch (txError) {
+                // Skip individual tx errors
               }
             }
-          } catch (blockError) {
-            // Skip block errors and continue
-            console.log(`[Chat] ⚠️ Error fetching block ${currentBlock - i}:`, blockError);
-            break;
           }
         }
         
@@ -1007,27 +1008,7 @@ User Input:
     // We still log to database for analytics, but don't update contract metrics
     console.log(`[Chat] ℹ️  Skipping contract verification for unified chat (does not affect agent metrics)`);
 
-    // Settle payment if successful
-    if (result.success) {
-      try {
-        // For unified chat: Settle directly to platform fee recipient (not escrow)
-        // This ensures unified chat revenue goes to the platform, not to any agent developer
-        await settlePayment(paymentPayload, {
-          priceUsd: agentPrice,
-          payTo: unifiedChatPayTo, // Platform fee recipient for unified chat
-          testnet: true,
-        }, paymentHeaderValue);
-        console.log(`[Chat] ✅ Payment settled directly to platform fee recipient: ${unifiedChatPayTo}`);
-        console.log(`[Chat] ℹ️  Unified chat revenue goes to platform, not to any agent developer`);
-        db.updatePayment(paymentHashBytes32, { status: "settled" });
-      } catch (settleError) {
-        console.error("[Chat] Payment settlement error:", settleError);
-        db.updatePayment(paymentHashBytes32, { status: "failed" });
-      }
-    } else {
-      db.updatePayment(paymentHashBytes32, { status: "refunded" });
-    }
-
+    // Send response immediately to user
     res.json({
       executionId: contractExecutionId,
       output: result.output,
@@ -1051,6 +1032,32 @@ User Input:
         transactionHistory: transactionHistory,
       }),
     });
+
+    // Settle payment asynchronously (background task)
+    // This ensures the user gets the response immediately without waiting for blockchain settlement
+    (async () => {
+      if (result.success) {
+        try {
+          // For unified chat: Settle directly to platform fee recipient (not escrow)
+          // This ensures unified chat revenue goes to the platform, not to any agent developer
+          console.log(`[Chat] 🔄 Starting background payment settlement...`);
+          await settlePayment(paymentPayload, {
+            priceUsd: agentPrice,
+            payTo: unifiedChatPayTo, // Platform fee recipient for unified chat
+            testnet: true,
+          }, paymentHeaderValue);
+          console.log(`[Chat] ✅ Payment settled directly to platform fee recipient: ${unifiedChatPayTo}`);
+          console.log(`[Chat] ℹ️  Unified chat revenue goes to platform, not to any agent developer`);
+          db.updatePayment(paymentHashBytes32, { status: "settled" });
+        } catch (settleError) {
+          console.error("[Chat] Payment settlement error:", settleError);
+          db.updatePayment(paymentHashBytes32, { status: "failed" });
+        }
+      } else {
+        db.updatePayment(paymentHashBytes32, { status: "refunded" });
+      }
+    })().catch(err => console.error("[Chat] Background settlement task error:", err));
+
   } catch (error) {
     console.error("❌ Error in chat endpoint:", error);
     console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
