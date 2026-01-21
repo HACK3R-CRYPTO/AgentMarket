@@ -2,6 +2,38 @@
 
 Unified Web3 chat assistant and AI agent marketplace. Ask anything in plain English, or browse specialized AI agents. Built on Cronos with x402 micropayments.
 
+## What Makes OneChat Unique
+
+**1. On-Chain Agent Registry (First on Cronos)**
+- Unlike other marketplaces that use databases, all agents registered on Cronos blockchain
+- Immutable, transparent, verifiable
+- First agent marketplace with on-chain registry on Cronos
+- All agent executions, metrics, and payments tracked on-chain
+
+**2. x402 Micropayments (First Agent Marketplace with x402)**
+- Pay-per-use model, not subscriptions
+- $0.10 per execution, no monthly fees
+- First agent marketplace powered by x402 on Cronos
+- Automated settlement pipelines with risk-managed workflows
+
+**3. Crypto.com Ecosystem Integration (Deepest Integration)**
+- Market Data MCP Server for real-time prices
+- AI Agent SDK for Exchange/DeFi/CronosID queries
+- VVS Finance DEX for token swaps
+- Most comprehensive Crypto.com integration in any agent platform
+
+**4. Web3-Native Focus**
+- Built specifically for blockchain users on Cronos
+- Agents interact with smart contracts
+- Query blockchain, execute DeFi operations
+- Not just AI agents — Web3-native agents
+
+**5. Dual-Mode Architecture**
+- Unified chat for simplicity (ask anything in plain English)
+- Individual agents marketplace for specialization
+- Both modes work together seamlessly
+- First platform to combine both approaches
+
 ## The Problem
 
 Web3 is powerful, but it's also fragmented and intimidating.
