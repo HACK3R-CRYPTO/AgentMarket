@@ -4,17 +4,23 @@ Ask anything. Get real answers. Execute actions. All in one chat. Built on Crono
 
 ## The Problem
 
-Web3 users waste hours every day switching between 5+ different apps and tools. Check prices on CoinGecko. Swap on VVS. Transfer via wallet. Query on Cronoscan. Analyze contracts separately. Each action requires opening a different app. Each app requires different logins. Each workflow takes multiple steps.
+Web3 is powerful, but it's also fragmented and intimidating.
+
+**For Experts:** Users waste hours every day switching between 5+ different apps and tools. Check prices on CoinGecko. Swap on VVS. Transfer via wallet. Query on Cronoscan. Analyze contracts separately. Each action requires opening a different app. Each app requires different logins. Each workflow takes multiple steps.
+
+**For Beginners:** The barrier to entry is a brick wall. "Gas fees", "slippage", "contract addresses", "chain IDs". These terms scare away 99% of potential users. A simple task like "buy some Bitcoin" becomes a terrifying navigation through exchanges, wallets, and bridges. Users shouldn't need a PhD in Computer Science to use financial tools.
 
 Simple tasks like "swap tokens and check my portfolio" require 15+ minutes across 3 different apps. Users must know which tool to use for each task. No unified interface. Complex workflows. Time waste.
 
 ## User Story
 
-Sarah is a DeFi user. She needs to check her portfolio, swap some tokens, and send money. That's 3 different apps. 3 different logins. 15 minutes of her time. She opens CoinGecko to check prices. Then opens VVS Finance to swap tokens. Then opens her wallet to send money. Each app has different interfaces. Each requires different steps. Each takes time.
+**Sarah (DeFi Native):** She needs to check her portfolio, swap some tokens, and send money. That's 3 different apps. 3 different logins. 15 minutes of her time. She opens CoinGecko to check prices. Then opens VVS Finance to swap tokens. Then opens her wallet to send money. Each app has different interfaces. Each requires different steps. Each takes time.
 
-Mike is a crypto trader. He wants to ask "What's my balance and swap 100 CRO for USDC" in one place. But he needs to use 3 different tools. Check balance on Cronoscan. Swap on VVS. Each tool requires manual navigation. Each requires understanding the interface. Why can't he just ask in plain English?
+**Mike (Crypto Trader):** He wants to ask "What's my balance and swap 100 CRO for USDC" in one place. But he needs to use 3 different tools. Check balance on Cronoscan. Swap on VVS. Each tool requires manual navigation. Each requires understanding the interface. Why can't he just ask in plain English?
 
-Alex is a Web3 enthusiast. Before OneChat, he spent 20 minutes every morning checking prices, balances, and recent transactions across 4 different apps. CoinGecko for prices. Cronoscan for balances. VVS for swaps. Wallet for transfers. Each morning. Every day. 20 minutes wasted on tool switching.
+**Lisa (The "No-Coiner"):** Lisa hears about crypto but has never used it. She doesn't know what a "DEX" is. She doesn't know how to set "slippage tolerance". She just wants to save money. In OneChat, she simply types: *"Help me invest $50 in USDC"*. The AI explains what USDC is, guides her through the process in plain English, and handles the technical complexity in the background. She uses Web3 without ever needing to "learn" Web3.
+
+**Alex (Web3 Enthusiast):** Before OneChat, he spent 20 minutes every morning checking prices, balances, and recent transactions across 4 different apps. CoinGecko for prices. Cronoscan for balances. VVS for swaps. Wallet for transfers. Each morning. Every day. 20 minutes wasted on tool switching.
 
 OneChat solves this. One chat. Multiple superpowers. Ask in plain English. Get real answers. Execute actions. All in one place. No app switching. No manual tool selection. Just ask. Get results.
 
