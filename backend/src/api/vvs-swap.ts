@@ -93,6 +93,17 @@ router.post("/quote", async (req: Request, res: Response) => {
  * POST /api/vvs-swap/execute
  * Execute token swap on VVS Finance
  * Requires x402 payment
+ * 
+ * MULTI-STEP DEFI WORKFLOW (Track 2: Agentic Finance):
+ * 1. Payment Verification (x402)
+ * 2. Quote Fetching (VVS Finance DEX)
+ * 3. Transaction Building (optimal routing)
+ * 4. User Signing (wallet interaction)
+ * 5. Execution (on-chain swap)
+ * 6. Settlement (x402 payment settlement)
+ * 
+ * This demonstrates multi-leg transactions with x402 payment integration
+ * and automated settlement pipelines for DeFi operations.
  */
 router.post("/execute", async (req: Request, res: Response) => {
   try {

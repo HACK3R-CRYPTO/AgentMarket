@@ -174,9 +174,18 @@ Browse agents on homepage. Search and filter. View agent details. See pricing an
 
 **Real-Time Metrics:** Execution counts, success rates, and revenue tracked on-chain. Updates instantly. Public metrics build trust in marketplace.
 
-### VVS Finance Token Swap
+### VVS Finance Token Swap - Multi-Step DeFi Operation
 
-Intelligent swap routing via unified chat. Ask "Swap 100 CRO for USDC" in chat. System automatically detects swap intent. Extracts token pair and amount. Fetches live quote from VVS Finance DEX. Returns expected output amount and swap path. Provides swap parameters ready for execution. Execute via `/api/vvs-swap/execute` with x402 payment ($0.15). Sign transaction in wallet. Swap executes on VVS Finance. Mock mode on testnet. Real swaps on mainnet. Agent-driven workflow with intelligent routing.
+**Multi-Step DeFi Workflow:**
+
+1. **Intent Detection:** User asks "Swap 100 CRO for USDC" → System detects swap intent
+2. **Quote Fetching:** System fetches live quote from VVS Finance DEX → Returns expected output amount and swap path
+3. **Payment Verification:** User pays $0.15 via x402 → Backend verifies payment
+4. **Transaction Building:** System builds swap transaction with optimal routing
+5. **Execution:** User signs transaction → Swap executes on VVS Finance DEX
+6. **Settlement:** x402 payment settles to escrow → Platform fee distributed
+
+**Intelligent Routing:** System automatically finds best swap path, checks liquidity, and handles slippage. Agent-driven workflow with x402-powered settlement. Mock mode on testnet. Real swaps on mainnet.
 
 ### Token Transfers
 
@@ -208,11 +217,21 @@ Example: Agent description "Analyzes Solidity contracts" only answers contract q
 
 ## Payment Flow
 
-### Individual Agent Payments
+### Individual Agent Payments - Multi-Step Settlement Workflow
 
-User pays via x402. Payment goes to escrow contract. Backend settles payment. Backend releases payment to developer. Platform takes 10% fee. Developer receives 90% in their wallet.
+**5-Step Automated Settlement Pipeline:**
 
-Example: User pays $0.10. Platform fee $0.01. Developer receives $0.09. All automatic. All on-chain. All transparent.
+1. **Payment Verification:** User pays via x402 → Backend verifies payment signature
+2. **Agent Execution:** Backend executes agent with user input
+3. **Conditional Settlement:** If execution succeeds → proceed to settlement; If fails → refund user
+4. **Payment Settlement:** Backend settles payment to escrow contract via x402 facilitator
+5. **Revenue Distribution:** Escrow contract automatically splits payment:
+   - Platform fee (10%) → Platform treasury
+   - Developer payment (90%) → Developer wallet
+
+**Example:** User pays $0.10. Platform fee $0.01. Developer receives $0.09. All automatic. All on-chain. All transparent.
+
+**Risk-Managed Workflow:** Payment only settles if agent execution succeeds. Failed executions trigger automatic refunds. This ensures users only pay for successful results.
 
 ### Unified Chat Payments
 
@@ -240,13 +259,19 @@ Backend: See backend README for setup. Run validation server. Configure contract
 
 ## Deployed Contracts
 
-Cronos Testnet:
+**Cronos Testnet:**
 
-Agent Registry: 0xd3097577Fa07E7CCD6D53C81460C449D96f736cC
+- **Agent Registry:** `0xd3097577Fa07E7CCD6D53C81460C449D96f736cC`
+  - Stores all agent registrations on-chain
+  - Tracks execution counts, reputation, and metrics
+  - Immutable agent marketplace
 
-Agent Escrow: 0x4352F2319c0476607F5E1cC9FDd568246074dF14
+- **Agent Escrow:** `0x4352F2319c0476607F5E1cC9FDd568246074dF14`
+  - Handles payment escrow and settlement
+  - Automated revenue distribution (90% developer, 10% platform)
+  - Refund handling for failed executions
 
-View contracts on Cronoscan Testnet.
+View contracts on [Cronoscan Testnet](https://testnet.cronoscan.com).
 
 ## Network Configuration
 
@@ -305,4 +330,91 @@ Payment Notes:
 
 ## Built for Hackathon
 
-OneChat built for Cronos x402 Paytech Hackathon. Intelligent Web3 assistant. Automatic routing. Real-world data integration. x402 micropayments. Multiple capabilities. Crypto.com SDK integration complete. Market Data MCP Server connected. VVS Finance DEX integrated. Exchange module for ticker data. Block module for block queries. Defi module for VVS and H2 protocols. CronosID module for name resolution. Token wrapping support. Token transfers via magic links with modal overlay. Portfolio tracker. Transaction history. Wallet creation. Voice input. Quick actions. Ready for users. Production quality code.
+OneChat built for Cronos x402 Paytech Hackathon. Qualifies for **Track 1 (x402 Applications)** and **Track 3 (Crypto.com X Cronos Ecosystem)**.
+
+### Track 1 - x402 Applications (Primary Track)
+
+**Agent-Triggered Payments:**
+- AI agents automatically detect user queries and trigger x402 payment flows
+- No manual payment initiation required
+- Seamless user experience with automatic payment prompts
+
+**AI-Driven Contract Interactions:**
+- On-chain Agent Registry contract stores all agent details
+- Agents interact with smart contracts (AgentRegistry, AgentEscrow)
+- All agent registrations, executions, and payments tracked on-chain
+- Transparent, immutable agent marketplace
+
+**Automated Settlement Pipelines (5-Step Workflow):**
+1. Payment Verification: x402 payment signature verified
+2. Agent Execution: Backend executes agent with user input
+3. Conditional Settlement: Success → proceed, Failure → refund
+4. Payment Settlement: Payment settled to escrow via x402 facilitator
+5. Revenue Distribution: Platform fee (10%) + Developer payment (90%)
+
+**Dynamic Asset Management:**
+- Automated portfolio queries from Cronos blockchain
+- Real-time balance checks
+- Transaction history queries
+- All data fetched automatically based on user queries
+
+**Automated Treasury Workflows:**
+- Platform fee recipient receives 10% of all agent payments
+- Developer receives 90% automatically
+- All distribution handled by AgentEscrow smart contract
+- On-chain transparency for all revenue flows
+
+**Developer Revenue Model:**
+- Developers create agents, register on-chain, earn revenue
+- 90% of payment goes to developer, 10% to platform
+- All automatic, all transparent, all on-chain
+- Real-time metrics tracked on blockchain
+
+### Track 3 - Crypto.com X Cronos Ecosystem (Primary Track)
+
+**Crypto.com Market Data MCP Server Integration:**
+- Real-time cryptocurrency prices via Model Context Protocol
+- Automatic REST API fallback if MCP unavailable
+- No API key required
+- Works immediately out of the box
+
+**Crypto.com AI Agent SDK Integration:**
+- Exchange queries: Get all tickers, ticker information
+- DeFi queries: Whitelisted tokens, all farms, farm by symbol (VVS protocol)
+- CronosID queries: Resolve name to address, lookup address to name
+- Intelligent fallback routing when APIs fail
+- All queries work on Cronos EVM
+
+**VVS Finance DEX Integration:**
+- Intelligent swap routing via unified chat
+- Live quote fetching from VVS Finance DEX
+- Automatic parameter extraction from natural language
+- x402-powered payment settlement for swap execution
+- Multi-step DeFi workflow: Quote → Verify → Execute → Settle
+
+**Cronos dApp Integrations:**
+- Blockchain queries: Balances, transactions, blocks
+- Token operations: Wrapping, transfers, metadata
+- Transaction execution: Magic links with modal overlays
+- All operations use x402 for settlement
+
+### Multi-Step Workflows & Risk Management
+
+**5-Step Automated Settlement Pipeline:**
+- Payment verification before execution
+- Conditional settlement based on outcome
+- Automatic refunds for failed executions
+- Escrow-based payment handling
+- Automated revenue distribution
+
+**Risk-Managed Workflows:**
+- Payment only settles if agent execution succeeds
+- Failed executions trigger automatic refunds
+- Payment verification before any execution
+- Escrow protection for all parties
+
+**Multi-Step DeFi Operations:**
+- VVS swap workflow: Quote fetching → Payment verification → Transaction building → Execution → Settlement
+- All steps automated and integrated with x402
+
+Intelligent Web3 assistant. Automatic routing. Real-world data integration. x402 micropayments. Multiple capabilities. Production quality code. Deployed on Cronos Testnet.
