@@ -408,9 +408,9 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-neutral-50 flex flex-col">
+    <div className="h-screen bg-black text-neutral-50 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-black/80 backdrop-blur-sm border-b border-neutral-800">
+      <header className="z-50 bg-black/80 backdrop-blur-sm border-b border-neutral-800 flex-none">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
@@ -1004,7 +1004,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-neutral-800 bg-black/80 backdrop-blur-sm">
+      <div className="border-t border-neutral-800 bg-black/80 backdrop-blur-sm flex-none">
         <div className="container mx-auto px-4 py-4 max-w-4xl">
           {showPayment ? (
             <div className="mb-4">

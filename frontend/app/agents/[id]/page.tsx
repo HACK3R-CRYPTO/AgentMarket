@@ -371,7 +371,7 @@ export default function AgentDetail() {
                 onChange={(value) => setInput(value)}
                 disabled={executing}
                 minHeight={120}
-                maxHeight={300}
+                maxHeight={200}
                 className="py-2"
               />
             </div>
