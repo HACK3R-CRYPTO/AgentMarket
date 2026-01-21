@@ -1,6 +1,6 @@
 # OneChat
 
-Ask anything. Get real answers. Execute actions. All in one chat. Built on Cronos with x402 micropayments.
+Unified Web3 chat assistant and AI agent marketplace. Ask anything in plain English, or browse specialized AI agents. Built on Cronos with x402 micropayments.
 
 ## The Problem
 
@@ -90,13 +90,15 @@ Step six: Try VVS Finance swap. Go to `/chat`. Ask "Swap 100 CRO for USDC on mai
 
 Step seven: Create your own agent. Go to `/dashboard`. Click "Create Agent". Fill name, description, price. Register on-chain. Agent appears in marketplace. Earn revenue from executions.
 
-## Using Agents
+## Two Ways to Use OneChat
 
-### Via Unified Chat
+OneChat offers two powerful, equally important modes:
 
-Go to `/chat`. Ask anything. System detects intent. Routes to right agent. Fetches real data. Returns answer. Pay $0.10 per message. All automatic.
+### Unified Chat Interface
 
-Examples:
+Go to `/chat`. Ask anything in plain English. System detects intent. Routes to right agent or tool. Fetches real data. Returns answer. Pay $0.10 per message. All automatic.
+
+**Examples:**
 - "What's the price of Bitcoin?" → Fetches real price from Crypto.com Market Data
 - "Get all tickers" → Fetches all trading pairs from Crypto.com Exchange
 - "What's the ticker information of BTC_USDT" → Fetches specific ticker data
@@ -112,22 +114,41 @@ Examples:
 - "Lookup CronosId for 0x..." → Looks up address to find CronosID name
 - "Wrap 10 CRO token" → Wraps native CRO into WCRO via magic link modal
 - "Create a wallet" → Creates new wallet via AI Agent SDK
-- "Analyze this contract: [code]" → Analyzes Solidity, returns security report
-- "Create a tweet about DeFi" → Generates marketing content
+- "Analyze this contract: [code]" → Routes to Smart Contract Analyzer agent
+- "Create a tweet about DeFi" → Routes to Content Generator agent
 - "Swap 100 CRO for USDC" → Fetches live quote from VVS Finance, provides swap parameters
 - "Send 50 CRO to 0x..." → Generates magic link that opens in modal for seamless transfer
 
-### Via Individual Agents
+### Individual AI Agents Marketplace
 
-Browse agents on homepage. Search and filter. View agent details. See pricing and reputation. Execute with input. Pay via x402. See results. Real-time metric updates.
+Browse agents on homepage. Search and filter. View agent details. See pricing and reputation. Execute with input. Pay via x402. See results. Real-time metric updates from blockchain.
 
-Agent types:
-- Smart Contract Analyzer: Analyzes Solidity code for vulnerabilities
-- Market Data Agent: Fetches real-time cryptocurrency prices
-- Content Generator: Creates marketing content, tweets, blog posts
-- Portfolio Analyzer: Analyzes DeFi portfolios and provides recommendations
+**How to Use Individual Agents:**
+1. Visit homepage to see all registered agents
+2. Browse agent cards with execution counts and pricing
+3. Click on an agent to view details page
+4. Provide your input (e.g., paste contract code for Smart Contract Analyzer)
+5. Click "Execute" and pay via x402 (price set by developer, typically $0.10-$0.50)
+6. View specialized results from the agent
+7. See execution count update in real-time
+
+**Agent Types:**
+- **Smart Contract Analyzer:** Analyzes Solidity code for vulnerabilities and security issues
+- **Market Data Agent:** Fetches real-time cryptocurrency prices and market data
+- **Content Generator:** Creates marketing content, tweets, blog posts
+- **Portfolio Analyzer:** Analyzes DeFi portfolios and provides recommendations
+
+**Developer Revenue Model:** Developers create agents, register on-chain, earn 90% of execution payments. Platform takes 10% fee. All automatic, all transparent, all on-chain.
 
 ## Features
+
+### Two Powerful Modes
+
+**Unified Chat:** One interface for all Web3 interactions. Ask in plain English, get results automatically.
+
+**Individual Agents:** Browse specialized AI agents, execute directly, get focused results.
+
+Both modes work together and are equally important.
 
 ### Unified Chat Interface
 
@@ -141,9 +162,17 @@ Rich Text Rendering: Markdown support with proper formatting for code blocks, li
 
 Multi-language Support: Select your preferred language for voice input from the language selector.
 
-### Individual Agents
+### Individual AI Agents Marketplace
 
 Browse agents on homepage. Search and filter. View agent details. See pricing and reputation. Execute with input. Pay via x402. See results. Real-time metric updates from blockchain.
+
+**Agent Specialization:** Each agent focuses on a specific domain. Auto-generated prompts enforce boundaries. Agents decline off-topic questions and explain their specialization. Ensures quality, focused responses.
+
+**On-Chain Registration:** All agents registered in Agent Registry smart contract. Agent details, execution counts, and metrics stored on-chain. Transparent, immutable, verifiable.
+
+**Developer Revenue:** Developers earn 90% of execution payments. Platform takes 10% fee. All payments settled automatically via x402 escrow contract. Revenue flows directly to developer wallet.
+
+**Real-Time Metrics:** Execution counts, success rates, and revenue tracked on-chain. Updates instantly. Public metrics build trust in marketplace.
 
 ### VVS Finance Token Swap
 
