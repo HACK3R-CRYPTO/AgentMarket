@@ -242,15 +242,91 @@ async function fetchDataInParallel(params: {
             for (const token of commonTokens) {
               try {
                 const tokenBalance = await sdk.Token.getERC20TokenBalance(verification.payerAddress, token.address);
-                if (tokenBalance?.data?.balance && parseFloat(tokenBalance.data.balance) > 0) {
+                
+                // Check if the SDK call was successful
+                if (!tokenBalance || tokenBalance.status === 'Error' || tokenBalance.error) {
+                  console.warn(`[Chat] SDK returned error for ${token.symbol}:`, tokenBalance?.error || tokenBalance?.message);
+                  continue; // Skip this token if SDK call failed
+                }
+                
+                // Check if balance exists and is valid
+                const balanceValue = tokenBalance?.data?.balance || tokenBalance?.balance;
+                if (!balanceValue || parseFloat(String(balanceValue)) <= 0) {
+                  console.log(`[Chat] No balance found for ${token.symbol} or balance is 0`);
+                  continue; // Skip tokens with zero balance
+                }
+                
+                if (balanceValue && parseFloat(String(balanceValue)) > 0) {
+                  // Get token decimals for proper formatting using SDK metadata
+                  let formattedBalance = String(balanceValue);
+                  let decimals = 18; // Default to 18 if not found
+                  
+                  try {
+                    const tokenMetadata = await sdk.Token.getERC20Metadata(token.address);
+                    // Check if metadata call was successful and has decimals
+                    if (tokenMetadata?.status === 'Success' && tokenMetadata?.data?.decimals !== undefined) {
+                      // Decimals might be a string or number, convert to number
+                      const metadataDecimals = parseInt(String(tokenMetadata.data.decimals), 10);
+                      if (!isNaN(metadataDecimals) && metadataDecimals > 0) {
+                        decimals = metadataDecimals;
+                        console.log(`[Chat] ✅ Fetched decimals for ${token.symbol} from SDK: ${decimals}`);
+                      } else {
+                        console.warn(`[Chat] Invalid decimals value from SDK for ${token.symbol}: ${tokenMetadata.data.decimals}`);
+                      }
+                    } else {
+                      console.warn(`[Chat] Metadata fetch failed or missing decimals for ${token.symbol}, status: ${tokenMetadata?.status}`);
+                    }
+                  } catch (e: any) {
+                    // If metadata fetch fails, use known decimals for common tokens as fallback
+                    console.warn(`[Chat] Error fetching metadata for ${token.symbol}:`, e?.message || e);
+                    if (token.symbol === 'USDC' || token.symbol === 'USDT') {
+                      decimals = 6; // USDC and USDT use 6 decimals
+                      console.log(`[Chat] Using known decimals (6) for ${token.symbol} as fallback`);
+                    } else if (token.symbol === 'VVS') {
+                      decimals = 18; // VVS uses 18 decimals
+                      console.log(`[Chat] Using known decimals (18) for ${token.symbol} as fallback`);
+                    } else {
+                      console.warn(`[Chat] Could not fetch decimals for ${token.symbol}, using default (18)`);
+                    }
+                  }
+                  
+                  // Convert raw balance to human-readable format
+                  // Use manual calculation (more reliable than ethers.formatUnits with custom decimals)
+                  try {
+                    const balanceStr = String(balanceValue);
+                    if (!balanceStr || balanceStr === '0') {
+                      console.warn(`[Chat] Invalid balance value for ${token.symbol}: ${balanceStr}`);
+                      continue; // Skip this token
+                    }
+                    
+                    // Manual conversion: divide by 10^decimals
+                    const balanceNum = parseFloat(balanceStr);
+                    if (!isNaN(balanceNum) && balanceNum > 0) {
+                      formattedBalance = (balanceNum / Math.pow(10, decimals)).toString();
+                      // Remove trailing zeros (e.g., "4.610000" -> "4.61")
+                      if (formattedBalance.includes('.')) {
+                        formattedBalance = formattedBalance.replace(/\.?0+$/, '');
+                      }
+                      console.log(`[Chat] ✅ Formatted ${token.symbol} balance: ${balanceStr} → ${formattedBalance} (decimals: ${decimals})`);
+                    } else {
+                      console.warn(`[Chat] Invalid balance number for ${token.symbol}: ${balanceStr}`);
+                      continue; // Skip this token
+                    }
+                  } catch (formatError: any) {
+                    console.warn(`[Chat] Could not format balance for ${token.symbol}:`, formatError?.message || formatError);
+                    console.warn(`[Chat] Balance value was:`, balanceValue);
+                    // Keep raw balance if formatting fails
+                  }
+                  
                   balances.push({
                     symbol: token.symbol,
-                    balance: tokenBalance.data.balance,
+                    balance: formattedBalance,
                     contractAddress: token.address,
                   });
                 }
               } catch (e) {
                 // Skip failed tokens
+                console.warn(`[Chat] Failed to fetch balance for ${token.symbol}:`, e);
               }
             }
             
@@ -550,6 +626,13 @@ router.post("/", chatRateLimit, validateAgentInputMiddleware, async (req: Reques
     const needsTransfer = /(?:transfer|send)\s+\d+(?:\.\d+)?\s+(?:\w+\s+)*(?:to\s+)?0x[a-fA-F0-9]{40}/i.test(input);
     // Detect portfolio queries: "portfolio", "my tokens", "my balances", "show my wallet"
     const needsPortfolio = /(?:portfolio|my tokens|my balances|show my wallet|wallet balance|all my tokens|token holdings)/i.test(input);
+    // Detect individual token balance queries: "my usdc balance", "what is my token balance", "balance of 0x...", etc.
+    // This should catch ANY token balance query, not just specific tokens
+    const hasTokenBalanceKeywords = /(?:my balance|my.*balance|balance.*in|balance.*of|what.*balance|show.*balance|check.*balance)/i.test(input);
+    const hasContractAddress = input.match(/0x[a-fA-F0-9]{40}/);
+    // Match if: has balance keywords AND (has contract address OR mentions token/usdc/usdt/cro/vvs OR has "contract" keyword)
+    const mentionsToken = /(?:token|usdc|usdt|cro|vvs|erc20|erc-20|contract)/i.test(input);
+    const needsTokenBalance = hasTokenBalanceKeywords && (hasContractAddress || mentionsToken) && verification.payerAddress;
     // Detect transaction history queries: "my transactions", "transaction history", "recent transactions"
     // Also detect when user says "show my transaction history" or similar
     const needsHistory = /(?:my transactions|transaction history|recent transactions|tx history|last transactions|show my tx|show.*transaction)/i.test(input);
@@ -637,8 +720,85 @@ router.post("/", chatRateLimit, validateAgentInputMiddleware, async (req: Reques
       }
     }
 
-    // Fetch blockchain data if needed
-    if (needsBlockchain) {
+    // Handle individual token balance queries first (before general blockchain queries)
+    // This handles ANY ERC20 token, not just known ones
+    if (needsTokenBalance && !needsPortfolio) {
+      console.log(`[Chat] 💰 Individual token balance query detected: "${input}"`);
+      try {
+        const { queryTokenBalanceViaSDK } = require("../agent-engine/tools");
+        
+        // Extract contract address from query - look for explicit "contract" keyword first
+        let contractAddress: string | null = null;
+        const contractMatch = input.match(/contract[:\s]+(0x[a-fA-F0-9]{40})/i);
+        if (contractMatch) {
+          contractAddress = contractMatch[1];
+        } else {
+          // If no explicit "contract" keyword, check if there are multiple addresses
+          // The last address is usually the token contract when user provides both wallet and contract
+          const allAddresses = input.match(/0x[a-fA-F0-9]{40}/g);
+          if (allAddresses && allAddresses.length > 1) {
+            contractAddress = allAddresses[allAddresses.length - 1]; // Last address is likely the contract
+          } else if (allAddresses && allAddresses.length === 1) {
+            // Single address - could be wallet or contract, but if it's not the payer's address, assume it's a contract
+            if (allAddresses[0].toLowerCase() !== verification.payerAddress.toLowerCase()) {
+              contractAddress = allAddresses[0];
+            }
+          }
+        }
+        
+        // Known token contracts on Cronos Testnet (for convenience)
+        const knownTokens: { [key: string]: string } = {
+          'usdc': '0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0',
+          'usdt': '0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0', // Same as USDC on testnet
+        };
+        
+        // Extract token name if mentioned
+        const tokenNameMatch = input.match(/\b(usdc|usdt|cro|vvs)\b/i);
+        const tokenName = tokenNameMatch ? tokenNameMatch[0].toLowerCase() : null;
+        
+        // Build query with payer's address and token info
+        // Format: "query address WALLET contract CONTRACT" (SDK expects wallet first, then contract)
+        let balanceQuery = input;
+        
+        // If contract address is explicitly provided, use it
+        if (contractAddress) {
+          if (!balanceQuery.includes(verification.payerAddress)) {
+            balanceQuery = `${input} address ${verification.payerAddress} contract ${contractAddress}`;
+          } else if (!balanceQuery.includes(contractAddress)) {
+            // Wallet address already in query, just add contract
+            balanceQuery = `${input} contract ${contractAddress}`;
+          }
+          console.log(`[Chat] ℹ️ Using provided contract address: ${contractAddress}`);
+        } 
+        // If no contract address but token name is mentioned, use known contract
+        else if (!contractAddress && tokenName && knownTokens[tokenName] && !balanceQuery.includes(verification.payerAddress)) {
+          balanceQuery = `${input} address ${verification.payerAddress} contract ${knownTokens[tokenName]}`;
+          console.log(`[Chat] ℹ️ Using known contract for ${tokenName.toUpperCase()}: ${knownTokens[tokenName]}`);
+        }
+        // If no contract address provided, add wallet address (SDK will return native balance or ask for contract)
+        else if (!balanceQuery.includes(verification.payerAddress)) {
+          balanceQuery = `${input} address ${verification.payerAddress}`;
+        }
+        
+        console.log(`[Chat] 🔍 Querying token balance with: "${balanceQuery}"`);
+        const tokenBalanceResult = await queryTokenBalanceViaSDK(balanceQuery);
+        if (tokenBalanceResult && !tokenBalanceResult.includes("Error:")) {
+          realDataContext += `\n\n[Real Token Balance Data - Fetched via Crypto.com Developer Platform SDK]:\n${tokenBalanceResult}\n`;
+          console.log(`[Chat] ✅ Token balance fetched successfully via Developer Platform SDK`);
+        } else {
+          console.warn(`[Chat] ⚠️ Token balance query failed: ${tokenBalanceResult}`);
+          // If query failed and no contract was provided, suggest user provide contract address
+          if (!contractAddress && !tokenName) {
+            realDataContext += `\n\nNote: To check a specific ERC20 token balance, please provide the token's contract address. For example: "what is my balance for contract 0x..."`;
+          }
+        }
+      } catch (error) {
+        console.warn(`[Chat] ⚠️ Token balance query failed:`, error);
+      }
+    }
+
+    // Fetch blockchain data if needed (but skip if we already handled token balance query)
+    if (needsBlockchain && !needsTokenBalance) {
       // Exchange, Defi, and CronosID queries are handled by AI Agent SDK
       // AI Agent SDK internally uses Developer Platform SDK and provides better formatting
       // Token wrap queries still use Developer Platform SDK directly (not supported by AI Agent SDK)

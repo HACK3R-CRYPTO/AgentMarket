@@ -1023,7 +1023,7 @@ async function queryGasInfoViaSDK(query: string): Promise<string> {
 /**
  * Query token balance using SDK Token module
  */
-async function queryTokenBalanceViaSDK(query: string): Promise<string> {
+export async function queryTokenBalanceViaSDK(query: string): Promise<string> {
   const sdk = initDeveloperPlatformSDK();
   if (!sdk) {
     throw new Error("Developer Platform SDK not available");
@@ -1888,7 +1888,39 @@ async function buildTransferTransactionViaSDK(query: string): Promise<string> {
   
   const amount = parseFloat(amountMatch[1]);
   const tokenSymbol = amountMatch[2].toUpperCase();
-  const toAddress = addressMatch[addressMatch.length - 1]; // Last address is recipient
+  
+  // Extract contract address first (if present) - look for "contract address:" or "contract:"
+  const contractMatch = query.match(/contract[:\s]+(0x[a-fA-F0-9]{40})/i);
+  const contractAddress = contractMatch ? contractMatch[1] : undefined;
+  
+  // Extract recipient address - should be the address that comes after "to" or "address"
+  // If contract address is found, exclude it from the recipient search
+  let toAddress: string | undefined;
+  const toMatch = query.match(/(?:to|address)[:\s]+(0x[a-fA-F0-9]{40})/i);
+  if (toMatch) {
+    toAddress = toMatch[1];
+  } else if (addressMatch.length === 1) {
+    // Only one address found, use it as recipient
+    toAddress = addressMatch[0];
+  } else if (contractAddress && addressMatch.length === 2) {
+    // Two addresses found, one is contract - use the other as recipient
+    toAddress = addressMatch.find(addr => addr.toLowerCase() !== contractAddress.toLowerCase());
+  } else {
+    // Fallback: use first address as recipient (before contract address in text)
+    const contractIndex = contractAddress ? query.indexOf(contractAddress) : -1;
+    if (contractIndex > 0) {
+      // Find address that appears before contract address
+      toAddress = addressMatch.find(addr => query.indexOf(addr) < contractIndex);
+    }
+    // If still not found, use first address
+    if (!toAddress) {
+      toAddress = addressMatch[0];
+    }
+  }
+  
+  if (!toAddress) {
+    throw new Error("Could not determine recipient address from transfer request");
+  }
   
   // Check if it's a token transfer (ERC-20) or native transfer
   const isNativeToken = tokenSymbol === 'CRO' || tokenSymbol === 'TCRO' || tokenSymbol === 'NATIVE';
@@ -1914,10 +1946,6 @@ async function buildTransferTransactionViaSDK(query: string): Promise<string> {
       // ERC-20 token transfer - need contract address
       // For demo, we'll try without contract address first to see the error/magic link structure
       console.log(`[Transfer] Calling Token.transfer() for ERC-20 token (may need contract address)...`);
-      
-      // Try to find contract address in query
-      const contractMatch = query.match(/contract[:\s]+(0x[a-fA-F0-9]{40})/i);
-      const contractAddress = contractMatch ? contractMatch[1] : undefined;
       
       if (contractAddress) {
         transferResponse = await Token.transfer({
